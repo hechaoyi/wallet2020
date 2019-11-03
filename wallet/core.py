@@ -1,8 +1,8 @@
 from datetime import datetime
 from logging import INFO
-from os import getenv
+from os import environ
 
-from flask import Flask
+from flask import Flask, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -20,9 +20,12 @@ def create_app():
 
 def _init_configurations(app):
     app.config.update(
-        SQLALCHEMY_DATABASE_URI=getenv('DATABASE_URL', ''),
-        SQLALCHEMY_ECHO=int(getenv('SQL_ECHO', '0')),
+        SQLALCHEMY_DATABASE_URI=environ['DATABASE_URL'],
+        SQLALCHEMY_ECHO=app.debug,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        M1_USERNAME=environ['M1_USERNAME'],
+        M1_PASSWORD=environ['M1_PASSWORD'],
+        M1_ACCOUNT=environ['M1_ACCOUNT'],
     )
     app.logger.setLevel(INFO)
 
@@ -35,9 +38,19 @@ def _init_components(app):
     models = [
         M1Portfolio,
     ]
+    [m.init_app(app) for m in models if hasattr(m, 'init_app')]
+
+    @app.shell_context_processor
+    def shell_context():
+        return {
+            'db': db,
+            **{m.__name__: m for m in models},
+        }
 
     @app.route('/')
-    def hello():
-        return {'m1': [e.rate for e in M1Portfolio.query.all()]}
-
-    app.shell_context_processor(lambda: {'db': db, **{m.__name__: m for m in models}})
+    def root():
+        limit = request.args.get('limit', 10, int)
+        return '\n'.join(
+            f'{e.date}: {e.value:.2f}  -  {e.gain:+7.2f} ({e.rate:+.2f}%)'
+            for e in M1Portfolio.net_value_series(limit)
+        )

@@ -9,9 +9,11 @@ pytest = "*"
 
 [packages]
 flask-migrate = "*"
+requests = "*"
 gunicorn = "*"
 simplejson = "*"
 psycopg2-binary = "*"
+pytz = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.7.5"
