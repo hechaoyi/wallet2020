@@ -1,1 +1,1 @@
-web: gunicorn 'wallet.core:create_app()'
+web: gunicorn wallet.wsgi:app
