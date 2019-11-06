@@ -23,10 +23,12 @@ def _init_configurations(app):
         SQLALCHEMY_DATABASE_URI=environ['DATABASE_URL'],
         SQLALCHEMY_ECHO=app.debug,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        M1_USERNAME=environ['M1_USERNAME'],
-        M1_PASSWORD=environ['M1_PASSWORD'],
-        M1_ACCOUNT=environ['M1_ACCOUNT'],
     )
+    for key in [
+        'M1_USERNAME', 'M1_PASSWORD', 'M1_ACCOUNT',
+        'PLIVO_ID', 'PLIVO_TKN', 'PLIVO_SRC', 'PLIVO_DST',
+    ]:
+        app.config[key] = environ[key]
     app.logger.setLevel(INFO)
 
 
@@ -34,18 +36,22 @@ def _init_components(app):
     db.init_app(app)
     Migrate(app, db)
 
+    # models
     from wallet.model.m1 import M1Portfolio
     models = [
         M1Portfolio,
     ]
     [m.init_app(app) for m in models if hasattr(m, 'init_app')]
 
-    @app.shell_context_processor
-    def shell_context():
-        return {
-            'db': db,
-            **{m.__name__: m for m in models},
-        }
+    # views
+    from wallet.view.plivo import bp as plivo_bp
+    app.register_blueprint(plivo_bp, url_prefix='/plivo')
+
+    # cli
+    app.shell_context_processor(lambda: {
+        'db': db,
+        **{m.__name__: m for m in models},
+    })
 
     @app.route('/')
     def root():
