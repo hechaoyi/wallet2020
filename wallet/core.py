@@ -2,7 +2,8 @@ from datetime import datetime
 from logging import INFO
 from os import environ
 
-from flask import Flask, request
+from flask import Flask
+from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -44,7 +45,9 @@ def _init_components(app):
     [m.init_app(app) for m in models if hasattr(m, 'init_app')]
 
     # views
+    from wallet.view.graphql import schema
     from wallet.view.plivo import bp as plivo_bp
+    app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=app.debug))
     app.register_blueprint(plivo_bp, url_prefix='/plivo')
 
     # cli
@@ -52,11 +55,3 @@ def _init_components(app):
         'db': db,
         **{m.__name__: m for m in models},
     })
-
-    @app.route('/')
-    def root():
-        limit = request.args.get('limit', 10, int)
-        return '\n'.join(
-            f'{e.date}: {e.value:.2f}  -  {e.gain:+7.2f} ({e.rate:+.2f}%)'
-            for e in M1Portfolio.net_value_series(limit)
-        )

@@ -9,6 +9,8 @@ pytest = "*"
 
 [packages]
 flask-migrate = "*"
+flask-graphql = "*"
+graphene = "*"
 requests = "*"
 gunicorn = "*"
 simplejson = "*"
