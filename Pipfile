@@ -15,6 +15,7 @@ requests = "*"
 gunicorn = "*"
 simplejson = "*"
 psycopg2-binary = "*"
+redis = "*"
 pytz = "*"
 
 [requires]

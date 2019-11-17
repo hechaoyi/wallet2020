@@ -7,7 +7,6 @@ from wallet.util.plivo import send
 from wallet.util.swapsy import search_then_create
 
 bp = Blueprint('plivo', __name__)
-_uuid_dedup = set()
 
 
 @bp.route('/message', methods=['POST'])
@@ -15,8 +14,7 @@ def message():
     text = request.form['Text']
     current_app.logger.info(f'plivo message received: [{text}] - {request.form}')
     uuid = request.form['MessageUUID']
-    if uuid not in _uuid_dedup:
-        _uuid_dedup.add(uuid)
+    if current_app.redis.set(f'plivo:message-dedup:{uuid}', '', ex=3600, nx=True):
         m = re.match(r'(\d+)-(\d+)', text)
         if m:
             def swapsy(app):

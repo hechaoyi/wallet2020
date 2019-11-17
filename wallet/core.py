@@ -6,6 +6,7 @@ from flask import Flask
 from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from redis import from_url
 
 db = SQLAlchemy()
 db.utcnow = datetime.utcnow
@@ -37,6 +38,7 @@ def _init_configurations(app):
 def _init_components(app):
     db.init_app(app)
     Migrate(app, db)
+    app.redis = from_url(environ['REDIS_URL'])
 
     # models
     from wallet.model.m1 import M1Portfolio

@@ -37,10 +37,10 @@ def init_app(app):
 
 def search(lo, hi):
     _access_trade2_page()
-    swapsy_session.block['sendAmount'] = (lo + hi) >> 1
+    swapsy_session.block['sendAmount'] = hi
     swapsy_session.block['sendCurrency'] = 'USD'
     swapsy_session.block['receiveCurrency'] = 'CNY'
-    data = {'_frontendCSRF': swapsy_session.csrf, **_json_to_form(swapsy_session.block, 'block', {})}
+    data = {'_frontendCSRF': swapsy_session.csrf, **_obj_to_form(swapsy_session.block, 'block', {})}
     swapsy_session.block = swapsy_session.post(HOST + '/trade2/search', data=data).json()
     trades = [
         Trade(
@@ -50,8 +50,10 @@ def search(lo, hi):
     ]
     current_app.logger.info('Swapsy matches:\n%s', '\n'.join(str(t) for t in trades))
     return max(
-        (trade for trade in trades if lo <= trade.amount <= hi and trade.actual_rate >= trade.rate),
-        key=lambda t: t.actual_rate, default=None
+        (trade for trade in trades
+         if lo <= trade.amount <= hi and trade.actual_rate >= trade.rate),
+        key=lambda t: (t.actual_rate, t.amount),
+        default=None
     )
 
 
@@ -64,11 +66,11 @@ def create(trade):
     swapsy_session.block['selectedExchangeRate'] = trade.rate
     swapsy_session.block['isOwnRequest'] = False
     swapsy_session.block['extra']['isRecommended'] = False
-    data = {'_frontendCSRF': swapsy_session.csrf, **_json_to_form(swapsy_session.block, 'block', {})}
+    data = {'_frontendCSRF': swapsy_session.csrf, **_obj_to_form(swapsy_session.block, 'block', {})}
     assert swapsy_session.post(HOST + '/trade2/init', data=data).json()['extra']['status'] == 'success'
     _access_trade2_page()
     swapsy_session.block['receiveWallets'] = 'wxpay,alipay'
-    data = {'_frontendCSRF': swapsy_session.csrf, **_json_to_form(swapsy_session.block, 'block', {})}
+    data = {'_frontendCSRF': swapsy_session.csrf, **_obj_to_form(swapsy_session.block, 'block', {})}
     assert swapsy_session.post(HOST + '/trade2/create', data=data).json()['extra']['status'] == 'success'
     current_app.logger.info(f'Swapsy created:  {trade}')
 
@@ -96,20 +98,19 @@ def _regex_search(resp, keyword, pattern):
     ).group(1)
 
 
-def _json_to_form(json, prefix, result):
-    for key, value in json.items():
-        prop = '{}[{}]'.format(prefix, key)
-        if value is None:
-            result[prop] = ''
-        elif isinstance(value, bool):
-            result[prop] = 'true' if value else 'false'
-        elif isinstance(value, (int, float, str)):
-            result[prop] = value
-        elif isinstance(value, dict):
-            _json_to_form(value, prop, result)
-        elif isinstance(value, list):
-            for i, e in enumerate(value):
-                _json_to_form(e, '{}[{}]'.format(prop, i), result)
-        else:
-            assert 0
+def _obj_to_form(obj, prefix, result):
+    if obj is None:
+        result[prefix] = ''
+    elif isinstance(obj, bool):
+        result[prefix] = 'true' if obj else 'false'
+    elif isinstance(obj, (int, float, str)):
+        result[prefix] = obj
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            _obj_to_form(value, '{}[{}]'.format(prefix, key), result)
+    elif isinstance(obj, list):
+        for key, value in enumerate(obj):
+            _obj_to_form(value, '{}[{}]'.format(prefix, key), result)
+    else:
+        assert 0
     return result
