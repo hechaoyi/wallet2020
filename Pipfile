@@ -14,9 +14,11 @@ graphene = "*"
 requests = "*"
 gunicorn = "*"
 simplejson = "*"
+pytz = "*"
 psycopg2-binary = "*"
 redis = "*"
-pytz = "*"
+rq = "*"
+setproctitle = "*"
 
 [requires]
 python_version = "3.7.5"

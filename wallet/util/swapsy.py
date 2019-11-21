@@ -3,8 +3,8 @@ from time import sleep
 
 from click import argument
 from flask import current_app
+from flask.json import loads
 from requests import session
-from simplejson import loads
 
 HOST = 'https://theswapsy.com'
 Trade = namedtuple('Trade', 'trade_id amount receive_amount rate actual_rate')
@@ -33,6 +33,15 @@ def init_app(app):
     def create_swapsy_trade(lo, hi):
         """ Create Swapsy Trade """
         search_then_create(lo, hi)
+
+
+def create_with_notification(lo, hi):
+    from wallet.util.plivo import send
+    trade = search_then_create(lo, hi, 20)
+    if trade:
+        send(f'匹配成功\n${trade.amount} -> ¥{trade.receive_amount}\n{trade.actual_rate}')
+    else:
+        send('匹配超时')
 
 
 def search(lo, hi):

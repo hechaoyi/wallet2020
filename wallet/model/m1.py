@@ -6,6 +6,7 @@ from pytz import timezone
 
 from wallet.core import db
 from wallet.util.m1 import request_m1finance
+from wallet.util.plivo import error_notifier
 
 tz = timezone('US/Pacific')
 
@@ -26,11 +27,18 @@ class M1Portfolio(db.Model):
         return f'[{self.date}] {self.value} | {self.gain}/{self.rate}%'
 
     def inspect(self, previous=None):
-        assert self.value == round(self.start_value + self.net_cash_flow + self.capital_gain, 2)
-        assert self.gain == round(self.capital_gain + self.dividend_gain, 2)
-        assert self.rate == round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
         if previous:
             assert self.start_value == previous.value
+        assert self.capital_gain == round(self.value - self.start_value - self.net_cash_flow, 2)
+        assert self.gain == round(self.capital_gain + self.dividend_gain, 2)
+        assert self.rate == round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
+
+    def fix(self, previous=None):
+        if previous:
+            self.start_value = previous.value
+        self.capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
+        self.gain = round(self.capital_gain + self.dividend_gain, 2)
+        self.rate = round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
 
     @classmethod
     def create_or_update(cls):
@@ -71,6 +79,7 @@ class M1Portfolio(db.Model):
     @classmethod
     def init_app(cls, app):
         @app.cli.command()
+        @error_notifier
         def update_m1_account():
             """ Update M1Finance Account """
             cls.create_or_update()

@@ -1,4 +1,9 @@
+import os
+import sys
+
 from pytest import fixture
+
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/..'))
 
 
 @fixture(scope='session')
