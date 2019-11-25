@@ -1,0 +1,12 @@
+{
+  "engines": {
+    "yarn": "1.19.2"
+  },
+  "scripts": {
+    "postinstall": "cd ui && yarn && yarn build"
+  },
+  "cacheDirectories": [
+    "ui/node_modules"
+  ],
+  "license": "MIT"
+}

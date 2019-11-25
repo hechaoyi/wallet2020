@@ -1,6 +1,6 @@
 from datetime import datetime
 from logging import INFO
-from os import environ, fork
+from os import environ, fork, path
 
 from flask import Flask
 from flask.json import dumps
@@ -15,7 +15,9 @@ db.utcnow = datetime.utcnow
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__,
+                static_url_path='',
+                static_folder=path.abspath(path.dirname(__file__) + '/../ui/build'))
     _init_configurations(app)
     _init_components(app)
     app.logger.info('Started %s', '[debug]' if app.debug else '')
@@ -33,7 +35,7 @@ def _init_configurations(app):
         'PLIVO_ID', 'PLIVO_TKN', 'PLIVO_SRC', 'PLIVO_DST',
         'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
     ]:
-        app.config[key] = environ[key]
+        app.config[key] = environ.get(key, '')
     app.web = 'gunicorn' in environ.get('SERVER_SOFTWARE', '')
     app.logger.setLevel(INFO)
 
@@ -41,8 +43,9 @@ def _init_configurations(app):
 def _init_components(app):
     db.init_app(app)
     Migrate(app, db)
-    app.redis = from_url(environ['REDIS_URL'])
-    app.queue = Queue(connection=app.redis)
+    if 'REDIS_URL' in environ:
+        app.redis = from_url(environ['REDIS_URL'])
+        app.queue = Queue(connection=app.redis)
     jobs = _init_worker(app)
 
     # models
@@ -55,6 +58,7 @@ def _init_components(app):
     # views
     from wallet.view.graphql import schema
     from wallet.view.plivo import bp as plivo_bp
+    app.add_url_rule('/', endpoint='root', view_func=lambda: app.send_static_file('index.html'))
     app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=app.debug))
     app.register_blueprint(plivo_bp, url_prefix='/plivo')
 

@@ -28,17 +28,32 @@ class M1Portfolio(db.Model):
 
     def inspect(self, previous=None):
         if previous:
-            assert self.start_value == previous.value
-        assert self.capital_gain == round(self.value - self.start_value - self.net_cash_flow, 2)
-        assert self.gain == round(self.capital_gain + self.dividend_gain, 2)
-        assert self.rate == round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
+            assert self.start_value == previous.value, \
+                f'start value not matched {self.start_value}, expected {previous.value}'
+        expected_capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
+        assert self.capital_gain == expected_capital_gain, \
+            f'capital gain not matched {self.capital_gain}, expected {expected_capital_gain}'
+        expected_gain = round(self.capital_gain + self.dividend_gain, 2)
+        assert self.gain == expected_gain, f'gain not matched {self.gain}, expected {expected_gain}'
+        expected_rate = round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
+        assert self.rate == expected_rate, f'rate not matched {self.rate}, expected {expected_rate}'
 
     def fix(self, previous=None):
-        if previous:
+        if previous and self.start_value != previous.value:
+            current_app.logger.info(f'fixed start value from {self.start_value} to {previous.value}')
             self.start_value = previous.value
-        self.capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
-        self.gain = round(self.capital_gain + self.dividend_gain, 2)
-        self.rate = round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
+        expected_capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
+        if self.capital_gain != expected_capital_gain:
+            current_app.logger.info(f'fixed capital gain from {self.capital_gain} to {expected_capital_gain}')
+            self.capital_gain = expected_capital_gain
+        expected_gain = round(self.capital_gain + self.dividend_gain, 2)
+        if self.gain != expected_gain:
+            current_app.logger.info(f'fixed gain from {self.gain} to {expected_gain}')
+            self.gain = expected_gain
+        expected_rate = round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
+        if self.rate != expected_rate:
+            current_app.logger.info(f'fixed rate from {self.rate} to {expected_rate}')
+            self.rate = expected_rate
 
     @classmethod
     def create_or_update(cls):
