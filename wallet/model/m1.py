@@ -13,7 +13,8 @@ tz = timezone('US/Pacific')
 
 class M1Portfolio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, unique=True, nullable=False)
+    name = db.Column(db.String, nullable=False, server_default='')
+    date = db.Column(db.Date, nullable=False)
     value = db.Column(db.Float, nullable=False)
     gain = db.Column(db.Float, nullable=False)
     rate = db.Column(db.Float, nullable=False)
@@ -23,11 +24,16 @@ class M1Portfolio(db.Model):
     dividend_gain = db.Column(db.Float, nullable=False)
     updated = db.Column(db.DateTime, nullable=False, default=db.utcnow, onupdate=db.utcnow)
 
+    __table_args__ = (
+        db.UniqueConstraint('name', 'date', name='m1_portfolio_name_date_key'),
+    )
+
     def __str__(self):
         return f'[{self.date}] {self.value} | {self.gain}/{self.rate}%'
 
     def inspect(self, previous=None):
         if previous:
+            assert self.name == previous.name
             assert self.start_value == previous.value, \
                 f'start value not matched {self.start_value}, expected {previous.value}'
         expected_capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
@@ -56,34 +62,40 @@ class M1Portfolio(db.Model):
             self.rate = expected_rate
 
     @classmethod
-    def create_or_update(cls):
-        today = tz.fromutc(datetime.utcnow()).date()
-        inst = cls.query.order_by(cls.date.desc()).first()
-        if inst.date == today:
-            last = cls.query.order_by(cls.date.desc()).offset(1).first()
-        else:
-            last, inst = inst, cls(date=today)
-            db.session.add(inst)
-
+    def update(cls):
         m1 = request_m1finance()
         current_app.logger.info(f'm1finance: {m1}')
-        assert last.date == tz.fromutc(datetime.fromisoformat(m1['startValue']['date'][:-1])).date()
+        today = tz.fromutc(datetime.utcnow()).date()
 
-        inst.value = m1['endValue']['value']
-        inst.gain = m1['totalGain']
-        inst.rate = m1['moneyWeightedRateOfReturn']
-        inst.start_value = m1['startValue']['value']
-        inst.net_cash_flow = m1['netCashFlow']
-        inst.capital_gain = m1['capitalGain']
-        inst.dividend_gain = m1['earnedDividends']
-        current_app.logger.info(f'portfolio: {inst}')
-        inst.inspect(last)
-        return inst
+        result = []
+        for name, performance in m1.items():
+            inst = cls.query.filter_by(name=name).order_by(cls.date.desc()).first()
+            if inst and inst.date == today:
+                last = cls.query.filter_by(name=name).order_by(cls.date.desc()).offset(1).first()
+            else:
+                last, inst = inst, cls(name=name, date=today)
+                db.session.add(inst)
+
+            inst.value = performance['endValue']['value']
+            inst.gain = performance['totalGain']
+            inst.rate = performance['moneyWeightedRateOfReturn']
+            inst.start_value = performance['startValue']['value']
+            inst.net_cash_flow = performance['netCashFlow']
+            inst.capital_gain = performance['capitalGain']
+            inst.dividend_gain = performance['earnedDividends']
+            current_app.logger.info(f'{name}: {inst}')
+            result.append((inst, last,
+                           tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()))
+
+        for inst, last, startDate in result:
+            if last:
+                assert last.date == startDate
+            inst.inspect(last)
 
     @classmethod
-    def net_value_series(cls, limit=10):
+    def net_value_series(cls, name, limit):
         R = namedtuple('R', 'date value gain rate start')
-        items = cls.query.order_by(cls.date.desc())[:limit]
+        items = cls.query.filter_by(name=name).order_by(cls.date.desc())[:limit]
         series = [R(None, None, None, None, items[0].value)]
         for e in items:
             gain = round(series[-1].start / (1 + 100 / e.rate), 2)
@@ -97,5 +109,5 @@ class M1Portfolio(db.Model):
         @error_notifier
         def update_m1_account():
             """ Update M1Finance Account """
-            cls.create_or_update()
+            cls.update()
             db.session.commit()
