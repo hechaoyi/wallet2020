@@ -43,9 +43,8 @@ def _init_configurations(app):
 def _init_components(app):
     db.init_app(app)
     Migrate(app, db)
-    if 'REDIS_URL' in environ:
-        app.redis = from_url(environ['REDIS_URL'])
-        app.queue = Queue(connection=app.redis)
+    app.redis = from_url(environ['REDIS_URL'])
+    app.queue = Queue(connection=app.redis)
     jobs = _init_worker(app)
 
     # models
@@ -65,12 +64,17 @@ def _init_components(app):
     # cli
     from wallet.util.swapsy import init_app as swapsy_init_app
     swapsy_init_app(app)
+    try:
+        from wallet.util.analysis import Analysis
+    except ImportError:
+        Analysis = None
     app.shell_context_processor(lambda: {
         'db': db,
         'redis': app.redis,
         'queue': app.queue,
         'jobs': jobs,
         'dump': lambda o: print(dumps(o, indent=2)),
+        'Analysis': Analysis,
         **{m.__name__: m for m in models},
     })
 

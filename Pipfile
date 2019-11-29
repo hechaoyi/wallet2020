@@ -6,6 +6,8 @@ verify_ssl = true
 [dev-packages]
 python-dotenv = "*"
 pytest = "*"
+pandas-datareader = "*"
+scipy = "*"
 
 [packages]
 flask-migrate = "*"

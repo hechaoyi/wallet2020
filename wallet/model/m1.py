@@ -5,7 +5,7 @@ from flask import current_app
 from pytz import timezone
 
 from wallet.core import db
-from wallet.util.m1 import request_m1finance
+from wallet.util.m1 import get_accounts
 from wallet.util.plivo import error_notifier
 
 tz = timezone('US/Pacific')
@@ -63,7 +63,7 @@ class M1Portfolio(db.Model):
 
     @classmethod
     def update(cls):
-        m1 = request_m1finance()
+        m1 = get_accounts()
         current_app.logger.info(f'm1finance: {m1}')
         today = tz.fromutc(datetime.utcnow()).date()
 
@@ -108,7 +108,7 @@ class M1Portfolio(db.Model):
     def init_app(cls, app):
         @app.cli.command()
         @error_notifier
-        def update_m1_account():
-            """ Update M1Finance Account """
+        def update_m1_accounts():
+            """ Update M1Finance Accounts """
             cls.update()
             db.session.commit()
