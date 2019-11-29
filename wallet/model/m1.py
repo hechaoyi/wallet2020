@@ -87,9 +87,10 @@ class M1Portfolio(db.Model):
             result.append((inst, last,
                            tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()))
 
-        for inst, last, startDate in result:
+        for inst, last, start_date in result:
             if last:
-                assert last.date == startDate
+                assert start_date == last.date, \
+                    f'start date not matched {start_date}, expected {last.date}'
             inst.inspect(last)
 
     @classmethod
