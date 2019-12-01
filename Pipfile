@@ -6,7 +6,6 @@ verify_ssl = true
 [dev-packages]
 python-dotenv = "*"
 pytest = "*"
-pandas-datareader = "*"
 scipy = "*"
 
 [packages]
@@ -17,10 +16,11 @@ requests = "*"
 gunicorn = "*"
 simplejson = "*"
 pytz = "*"
+pandas-datareader = "*"
 psycopg2-binary = "*"
 redis = "*"
 rq = "*"
 setproctitle = "*"
 
 [requires]
-python_version = "3.7.5"
+python_version = "3.7"

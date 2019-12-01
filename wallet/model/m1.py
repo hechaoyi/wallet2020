@@ -13,7 +13,7 @@ tz = timezone('US/Pacific')
 
 class M1Portfolio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False, server_default='')
+    name = db.Column(db.String(32), nullable=False, server_default='')
     date = db.Column(db.Date, nullable=False)
     value = db.Column(db.Float, nullable=False)
     gain = db.Column(db.Float, nullable=False)

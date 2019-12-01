@@ -1,13 +1,11 @@
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from functools import reduce
 from operator import concat
 
 from numpy import ones
 from pandas import DataFrame
 from pandas_datareader import DataReader
-from scipy import linalg
-from scipy.optimize import minimize_scalar
 
 from wallet.util.m1 import screen_funds, screen_securities
 
@@ -188,9 +186,25 @@ def _optimize(data, amplifier=0):
             return float('inf')
         return 1 / r
 
+    from scipy import linalg
+    from scipy.optimize import minimize_scalar
     mean, cov, one = data.mean(), data.cov(), ones(len(data.columns))
     cov_inv = DataFrame(linalg.pinv(cov.values), cov.columns, cov.index)
     A, B, C = one.T.dot(cov_inv).dot(mean), mean.T.dot(cov_inv).dot(mean), one.T.dot(cov_inv).dot(one)
     res = minimize_scalar(attempt, bounds=(mean.min(), mean.max()), method='Bounded')
     assert res.success
     return calculate(res.x)
+
+
+def exchange_rate():
+    return float(DataReader('USD/CNY', 'av-forex')['USD/CNY']['Exchange Rate'])
+
+
+def cached_exchange_rate():
+    now = datetime.utcnow().timestamp()
+    if now - _cache[1] > 3600:
+        _cache[:] = round(exchange_rate(), 4), now
+    return _cache[0]
+
+
+_cache = [0, 0]
