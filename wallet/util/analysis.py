@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from functools import reduce
 from operator import concat
 
@@ -194,17 +194,3 @@ def _optimize(data, amplifier=0):
     res = minimize_scalar(attempt, bounds=(mean.min(), mean.max()), method='Bounded')
     assert res.success
     return calculate(res.x)
-
-
-def exchange_rate():
-    return float(DataReader('USD/CNY', 'av-forex')['USD/CNY']['Exchange Rate'])
-
-
-def cached_exchange_rate():
-    now = datetime.utcnow().timestamp()
-    if now - _cache[1] > 3600:
-        _cache[:] = round(exchange_rate(), 4), now
-    return _cache[0]
-
-
-_cache = [0, 0]

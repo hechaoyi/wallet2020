@@ -64,16 +64,20 @@ def _init_models(app):
     from wallet.model.transaction import Transaction, Category
     from wallet.model.enums import Currency, Timezone
     from wallet.model.m1 import M1Portfolio
-    from pandas_datareader import DataReader
-    from wallet.util.analysis import Analysis, exchange_rate
-    from wallet.util.swapsy import init_app as swapsy_init_app
+    from wallet.util.swapsy import init_app as swapsy_init_app, exchange_rate
     models = [
         User, Account, Entry, Transaction, Category,
         Currency, Timezone, AccountType,
-        M1Portfolio, DataReader, Analysis, exchange_rate,
+        M1Portfolio, exchange_rate,
     ]
     [m.init_app(app) for m in models if hasattr(m, 'init_app')]
     swapsy_init_app(app)
+    try:
+        from pandas_datareader import DataReader
+        from wallet.util.analysis import Analysis
+        models += [DataReader, Analysis]
+    except ImportError:
+        pass
     return models
 
 

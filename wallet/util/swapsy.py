@@ -1,4 +1,5 @@
 from collections import namedtuple
+from datetime import datetime
 from time import sleep
 
 from click import argument
@@ -123,3 +124,17 @@ def _obj_to_form(obj, prefix, result):
     else:
         assert 0
     return result
+
+
+def exchange_rate():
+    return float(_regex_search(swapsy_session.get(HOST), b'exchange_rates:', b'"USD:CNY":([.0-9]+),'))
+
+
+def cached_exchange_rate():
+    now = datetime.utcnow().timestamp()
+    if now - _cache[1] > 3600:
+        _cache[:] = round(exchange_rate(), 4), now
+    return _cache[0]
+
+
+_cache = [0, 0]

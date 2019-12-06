@@ -4,7 +4,7 @@ from wallet.core import db
 from wallet.model.account import AccountType
 from wallet.model.entry import Entry
 from wallet.model.enums import Currency, Timezone
-from wallet.util.analysis import cached_exchange_rate as exchange_rate
+from wallet.util.swapsy import cached_exchange_rate as exchange_rate
 
 
 class Transaction(db.Model):

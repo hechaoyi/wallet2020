@@ -1,6 +1,6 @@
 from wallet.core import db
 from wallet.model.enums import Currency
-from wallet.util.analysis import cached_exchange_rate as exchange_rate
+from wallet.util.swapsy import cached_exchange_rate as exchange_rate
 
 
 class Entry(db.Model):
