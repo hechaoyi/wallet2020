@@ -1,5 +1,6 @@
 from wallet.core import db
 from wallet.model.account import Account, AccountType
+from wallet.model.transaction import Category
 
 
 class User(db.Model):
@@ -7,7 +8,7 @@ class User(db.Model):
     name = db.Column(db.String(32), nullable=False, unique=True)
     default_equity_account_id = db.Column(db.Integer, db.ForeignKey('account.id'))
     # relationships
-    default_equity_account = db.relationship('Account', foreign_keys=[default_equity_account_id])
+    default_equity_account = db.relationship('Account', foreign_keys=[default_equity_account_id], post_update=True)
 
     def __repr__(self):
         return f'<User {self.name!r}>'
@@ -15,7 +16,9 @@ class User(db.Model):
     @classmethod
     def create(cls, name):
         user = db.save(cls(name=name))
-        equity = Account.create(user, '权益', AccountType.EQUITY)
-        db.session.flush()
-        user.default_equity_account = equity
+        user.default_equity_account = Account.create(user, '权益', AccountType.EQUITY)
+        Account.create(user, '债务', AccountType.EQUITY)
+        for name in ('收益', '损失', '工资', '奖金', '转账', '借贷',
+                     '日常', '住房', '交通', '购物', '娱乐', '学习', '工作', '社交', '健康'):
+            Category.create(user, name)
         return user

@@ -1,6 +1,7 @@
 from enum import IntEnum
 
 from wallet.core import db
+from wallet.model.entry import Entry
 
 
 class AccountType(IntEnum):
@@ -30,3 +31,13 @@ class Account(db.Model):
     @classmethod
     def create(cls, user, name, type_):
         return db.save(cls(user=user, name=name, type=type_))
+
+    @classmethod
+    def get_list(cls, user):
+        count = db.session.query(
+            Entry.account_id.label('account_id'),
+            db.func.count().label('count')
+        ).group_by(Entry.account_id).subquery()
+        return (cls.query.filter_by(user=user)
+                .outerjoin(count, cls.id == count.c.account_id)
+                .order_by(count.c.count.desc().nullslast()).all())

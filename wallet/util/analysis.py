@@ -74,12 +74,8 @@ class Analysis:
         shrp = (data[candidate].mean() - RISK_FREE_RATE_PER_DAY * (1 + amplifier)) / data[candidate].std()
         return round(shrp, 4), {candidate: 1}, {candidate: similarity[candidate]}
 
-    def optimize_iteration(self, count, min_percent=.2, max_count=5, amplifier=0, additions=None):
-        assert not additions or not (set(additions) - set(self.origin_data.columns))
-        ratios = []
-
-        candidates = set(self.data.columns)
-        for _ in range(count * 4):
+    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, amplifier=0, additions=None):
+        def try_and_try_again():
             shrp, ratio, similarity = self.optimize(min_percent, max_count, amplifier)
             if (shrp, ratio) not in ratios:
                 ratios.append((shrp, ratio))
@@ -90,6 +86,13 @@ class Analysis:
                     if (s, r) not in ratios:
                         ratios.append((s, r))
                 candidates.remove(symbol)
+
+        assert not additions or not (set(additions) - set(self.origin_data.columns))
+        ratios = []
+
+        candidates = set(self.data.columns)
+        for _ in range(len(group_ratios) * 4):
+            try_and_try_again()
             if not candidates:
                 break
             self.setup_mask(candidates)
@@ -99,31 +102,29 @@ class Analysis:
             candidates |= set(additions)
         while candidates:
             self.setup_mask(candidates)
-            shrp, ratio, _ = self.optimize(min_percent, max_count, amplifier)
-            if (shrp, ratio) not in ratios:
-                ratios.append((shrp, ratio))
-            for symbol in ratio:
-                candidates.remove(symbol)
+            try_and_try_again()
 
         ratios.sort()
         return ratios, self._combine_groups(
-            [r for _, r in ratios[::-1]], count, set(additions) if additions else set()
+            [r for _, r in ratios[::-1]], group_ratios, set(additions) if additions else set()
         )
 
     @staticmethod
-    def _combine_groups(ratios, count, previous):
+    def _combine_groups(ratios, group_ratios, previous):
         def dfs(index, skipped, covered, selected):
-            if len(selected) == count:
-                if (covered, skipped) >= result_weight[0]:
-                    if (covered, skipped) > result_weight[0]:
-                        result_weight[0] = (covered, skipped)
+            if len(selected) == len(group_ratios):
+                if (covered, -skipped) >= result_weight[0]:
+                    if (covered, -skipped) > result_weight[0]:
+                        result_weight[0] = (covered, -skipped)
                         del result[:]
-                    result.append({s: round(rt[s] / count * 100) for rt in selected for s in rt})
+                    result.append({s: round(rt[s] * gr)
+                                   for rt, gr in zip(selected, group_ratios)
+                                   for s in rt})
                 return
-            if index >= len(ratios) or skipped > count * 2:
+            if index >= len(ratios) or skipped > len(group_ratios) * 2:
                 return
             ratio = ratios[index]
-            if all(s not in rt for s in ratio for rt in selected):
+            if len(ratio) > 1 and all(s not in rt for s in ratio for rt in selected):
                 dfs(index + 1, skipped, covered + len(previous & ratio.keys()), selected + [ratio])
                 dfs(index + 1, skipped + 1, covered, selected)
             else:
@@ -141,8 +142,8 @@ class Analysis:
         return cls(symbols, data_points, period)
 
     @classmethod
-    def from_funds(cls, data_points, period=5, additions=None, *, categories):
-        symbols = reduce(concat, (screen_funds(*c.split()) for c in categories))
+    def from_funds(cls, data_points, period=5, additions=None, max_exp=1, *, categories):
+        symbols = reduce(concat, (screen_funds(*c.split(','), max_exp=max_exp) for c in categories))
         if additions:
             symbols += additions
         return cls(symbols, data_points, period)

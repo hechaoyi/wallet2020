@@ -1,4 +1,5 @@
 from datetime import datetime
+from functools import wraps
 from logging import INFO
 from os import environ, fork, path
 
@@ -133,6 +134,16 @@ class IntEnum(db.TypeDecorator):
         return self.enum(value)
 
 
+def no_autoflush(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with db.session.no_autoflush:
+            return func(*args, **kwargs)
+
+    return wrapper
+
+
 db.utcnow = datetime.utcnow
 db.save = lambda e: db.session.add(e) or e
 db.IntEnum = IntEnum
+db.no_autoflush = no_autoflush

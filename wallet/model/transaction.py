@@ -32,11 +32,13 @@ class Transaction(db.Model):
         return db.save(cls(user=user, name=name, category=category,
                            occurred_utc=occurred_utc, occurred_tz=occurred_tz))
 
-    def add_entry(self, account, amount, currency, name=None):
+    def add_entry(self, account, amount, currency, name=None, pending=False, auto_merge=None):
         assert amount != 0
-        Entry.create(account, (name if name else self.name), amount, currency, self)
+        Entry.create(account, (name if name else self.name),
+                     amount, currency, self, pending, auto_merge)
 
-    def finish(self, name=None):
+    @db.no_autoflush
+    def finish(self, name=None, auto_merge=None):
         amounts = defaultdict(int)
         for entry in self.entries:
             if entry.account.type == AccountType.ASSET:
@@ -46,7 +48,8 @@ class Transaction(db.Model):
         amounts_without_zero = {c: a for c, a in amounts.items() if a != 0}
         if len(amounts_without_zero) == 1:
             currency, amount = next(iter(amounts_without_zero.items()))
-            self.add_entry(self.user.default_equity_account, round(amount, 2), currency, name)
+            self.add_entry(self.user.default_equity_account,
+                           round(amount, 2), currency, name, False, auto_merge)
         elif len(amounts_without_zero) == 2:
             self.exchange_rate_assumed = round(-amounts[Currency.RMB] / amounts[Currency.USD], 4)
             assert abs(self.exchange_rate_assumed / exchange_rate() - 1) < .01
@@ -72,3 +75,13 @@ class Category(db.Model):
     @classmethod
     def create(cls, user, name):
         return db.save(cls(user=user, name=name))
+
+    @classmethod
+    def get_list(cls, user):
+        count = db.session.query(
+            Transaction.category_id.label('category_id'),
+            db.func.count().label('count')
+        ).group_by(Transaction.category_id).subquery()
+        return (cls.query.filter_by(user=user)
+                .outerjoin(count, cls.id == count.c.category_id)
+                .order_by(count.c.count.desc().nullslast()).all())
