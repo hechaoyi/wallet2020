@@ -17,3 +17,10 @@ def message():
             from wallet.util.swapsy import create_with_notification
             current_app.queue.enqueue(create_with_notification, int(m[1]), int(m[2]), job_timeout=1800)
     return 'Message Received'
+
+
+@bp.route('/send', methods=['POST'])
+def send():
+    from wallet.util.plivo import send as send_via_plivo
+    send_via_plivo(request.form['text'])
+    return 'Done'
