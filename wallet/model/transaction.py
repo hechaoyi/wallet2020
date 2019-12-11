@@ -20,12 +20,16 @@ class Transaction(db.Model):
     # relationships
     user = db.relationship('User')
     category = db.relationship('Category')
-    entries = db.relationship('Entry', backref='transaction')
+    entries = db.relationship('Entry', back_populates='transaction')
 
     def __repr__(self):
         return (f'<Transaction {self.name!r} {self.category.name!r} '
                 f'{self.currency.symbol}{self.amount} '
-                f'{self.occurred_utc.isoformat(timespec="seconds")}>')
+                f'{self.occurred.isoformat(timespec="minutes")!r}>')
+
+    @property
+    def occurred(self):
+        return self.occurred_tz.localize(self.occurred_utc)
 
     @classmethod
     def create(cls, user, name, category, occurred_utc, occurred_tz):
@@ -34,8 +38,11 @@ class Transaction(db.Model):
 
     def add_entry(self, account, amount, currency, name=None, pending=False, auto_merge=None):
         assert amount != 0
-        Entry.create(account, (name if name else self.name),
-                     amount, currency, self, pending, auto_merge)
+        if not name:
+            name = self.name if self.name else self.category.name
+            if amount > 0 and not auto_merge:
+                name = f'{name} [{self.occurred.strftime("%y%m%d")}]'
+        Entry.create(account, name, amount, currency, self, pending, auto_merge)
 
     @db.no_autoflush
     def finish(self, name=None, auto_merge=None):
@@ -56,32 +63,3 @@ class Transaction(db.Model):
         entry = max(self.entries, key=lambda e: abs(e.usd_amount))
         self.amount = abs(entry.amount)
         self.currency = entry.currency
-
-
-class Category(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(32), nullable=False)
-    # relationships
-    user = db.relationship('User')
-
-    __table_args__ = (
-        db.UniqueConstraint('user_id', 'name', name='category_user_name_key'),
-    )
-
-    def __repr__(self):
-        return f'<Category {self.name!r}>'
-
-    @classmethod
-    def create(cls, user, name):
-        return db.save(cls(user=user, name=name))
-
-    @classmethod
-    def get_list(cls, user):
-        count = db.session.query(
-            Transaction.category_id.label('category_id'),
-            db.func.count().label('count')
-        ).group_by(Transaction.category_id).subquery()
-        return (cls.query.filter_by(user=user)
-                .outerjoin(count, cls.id == count.c.category_id)
-                .order_by(count.c.count.desc().nullslast()).all())

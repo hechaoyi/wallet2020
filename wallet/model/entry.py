@@ -16,7 +16,10 @@ class Entry(db.Model):
     created = db.Column(db.DateTime, nullable=False, default=db.utcnow)
     updated = db.Column(db.DateTime, onupdate=db.utcnow)
     # relationships
-    successor = db.relationship('Entry', remote_side=[id], backref='predecessors')
+    account = db.relationship('Account', back_populates='_entries')
+    transaction = db.relationship('Transaction', back_populates='entries')
+    successor = db.relationship('Entry', back_populates='predecessors', remote_side=[id])
+    predecessors = db.relationship('Entry', back_populates='successor')
 
     def __repr__(self):
         return (f'<Entry {self.name!r} {self.account.name!r} '
@@ -47,8 +50,9 @@ class Entry(db.Model):
         for asset in assets:
             asset.active = False
             asset.successor = successor
+        return successor
 
     def split(self, name, amount):
         assert amount != 0
-        db.save(Entry.create(self.account, name, amount, self.currency))
-        Entry.merge(Entry.create(self.account, name, -amount, self.currency), self, primary=self)
+        Entry.create(self.account, name, -amount, self.currency, auto_merge=self)
+        return db.save(Entry.create(self.account, name, amount, self.currency))

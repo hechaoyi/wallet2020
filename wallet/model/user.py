@@ -1,6 +1,6 @@
 from wallet.core import db
 from wallet.model.account import Account, AccountType
-from wallet.model.transaction import Category
+from wallet.model.category import Category
 
 
 class User(db.Model):
@@ -18,7 +18,8 @@ class User(db.Model):
         user = db.save(cls(name=name))
         user.default_equity_account = Account.create(user, '权益', AccountType.EQUITY)
         Account.create(user, '债务', AccountType.EQUITY)
-        for name in ('收益', '损失', '工资', '奖金', '转账', '借贷',
+        Account.create(user, '固定资产', AccountType.ASSET)
+        for name in ('调整', '收益', '损失', '工资', '奖金', '转账', '借贷',
                      '日常', '住房', '交通', '购物', '娱乐', '学习', '工作', '社交', '健康'):
             Category.create(user, name)
         return user

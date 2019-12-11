@@ -4,7 +4,7 @@ from wallet.model.m1 import M1Portfolio
 
 
 class Query(ObjectType):
-    m1 = List(String, name=String(default_value='Individual'), limit=Int(default_value=10))
+    m1 = List(String, name=String(default_value='Individual'), limit=Int(default_value=20))
 
     @staticmethod
     def resolve_m1(*_, name, limit):

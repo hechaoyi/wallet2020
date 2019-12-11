@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+from pytz import timezone, utc
+
 
 class Currency(IntEnum):
     USD = 1
@@ -17,9 +19,11 @@ class Timezone(IntEnum):
     US = 1
     CN = 2
 
-    @property
-    def tzname(self):
-        return {
-            Timezone.US: 'America/Los_Angeles',
-            Timezone.CN: 'Asia/Shanghai',
-        }[self]
+    def localize(self, dt):
+        return utc.localize(dt).astimezone(_TZ[self])
+
+
+_TZ = {
+    Timezone.US: timezone('America/Los_Angeles'),
+    Timezone.CN: timezone('Asia/Shanghai'),
+}

@@ -61,13 +61,14 @@ def _init_components(app, compact):
 def _init_models(app):
     from wallet.model.user import User
     from wallet.model.account import Account, AccountType
+    from wallet.model.category import Category
+    from wallet.model.transaction import Transaction
     from wallet.model.entry import Entry
-    from wallet.model.transaction import Transaction, Category
     from wallet.model.enums import Currency, Timezone
     from wallet.model.m1 import M1Portfolio
     from wallet.util.swapsy import init_app as swapsy_init_app, exchange_rate
     models = [
-        User, Account, Entry, Transaction, Category,
+        User, Account, Category, Transaction, Entry,
         Currency, Timezone, AccountType,
         M1Portfolio, exchange_rate,
     ]
