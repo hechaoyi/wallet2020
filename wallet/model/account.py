@@ -12,6 +12,10 @@ class AccountType(IntEnum):
     LIABILITY = 2
     EQUITY = 3
 
+    @property
+    def is_debit(self):
+        return self == AccountType.ASSET
+
 
 class Account(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -31,9 +35,13 @@ class Account(db.Model):
     )
 
     def __repr__(self):
-        if self.balance_usd is None or self.balance_rmb is None:
-            return f'<Account {self.name!r} {self.type.name}>'
-        return f'<Account {self.name!r} {self.type.name} | ${self.balance_usd} + ¥{self.balance_rmb}>'
+        if self.balance_usd and self.balance_rmb:
+            return f'<Account {self.name!r} {self.type.name} | ${self.balance_usd} + ¥{self.balance_rmb}>'
+        if self.balance_usd:
+            return f'<Account {self.name!r} {self.type.name} | ${self.balance_usd}>'
+        if self.balance_rmb:
+            return f'<Account {self.name!r} {self.type.name} | ¥{self.balance_rmb}>'
+        return f'<Account {self.name!r} {self.type.name}>'
 
     @classmethod
     def create(cls, user, name, type_):

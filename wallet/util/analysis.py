@@ -37,7 +37,7 @@ class Analysis:
     def screen(self):
         self.drop_mask()
         stat = _moving_average_statistics(self.data, self.period)
-        stat = stat[(stat['shrp'] > 0) & (stat['std'] > .05) & (abs(stat['skew']) < 1)
+        stat = stat[(stat['shrp'] > 0) & (stat['std'] > .1) & (abs(stat['skew']) < 1)
                     & (stat['count'] == stat['count'].max())]
         self.setup_mask(stat.index)
         return stat

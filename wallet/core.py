@@ -53,6 +53,7 @@ def _init_components(app, compact):
             'db': db, 'redis': app.redis,
             'queue': app.queue, 'jobs': jobs,
             'dump': lambda o: print(dumps(o, indent=2)),
+            'datetime': datetime,
             'user': models[0].query.filter_by(name='chaoyi').first(),
             **{m.__name__: m for m in models},
         })

@@ -29,7 +29,7 @@ class Transaction(db.Model):
 
     @property
     def occurred(self):
-        return self.occurred_tz.localize(self.occurred_utc)
+        return self.occurred_tz.from_utc(self.occurred_utc)
 
     @classmethod
     def create(cls, user, name, category, occurred_utc, occurred_tz):
@@ -40,8 +40,8 @@ class Transaction(db.Model):
         assert amount != 0
         if not name:
             name = self.name if self.name else self.category.name
-            if amount > 0 and not auto_merge:
-                name = f'{name} [{self.occurred.strftime("%y%m%d")}]'
+            # if amount > 0 and not auto_merge:
+            #     name = f'{name} [{self.occurred.strftime("%y%m%d")}]'
         Entry.create(account, name, amount, currency, self, pending, auto_merge)
 
     @db.no_autoflush
@@ -58,6 +58,7 @@ class Transaction(db.Model):
             self.add_entry(self.user.default_equity_account,
                            round(amount, 2), currency, name, False, auto_merge)
         elif len(amounts_without_zero) == 2:
+            # TODO equity exchange
             self.exchange_rate_assumed = round(-amounts[Currency.RMB] / amounts[Currency.USD], 4)
             assert abs(self.exchange_rate_assumed / exchange_rate() - 1) < .01
         entry = max(self.entries, key=lambda e: abs(e.usd_amount))

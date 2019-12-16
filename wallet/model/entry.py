@@ -36,7 +36,10 @@ class Entry(db.Model):
         entry = cls(account=account, name=name, amount=amount, currency=currency,
                     transaction=transaction, active=(amount != 0), pending=pending)
         if auto_merge:
-            cls.merge(entry, auto_merge, primary=auto_merge)
+            if isinstance(auto_merge, list):
+                cls.merge(entry, *auto_merge)
+            else:
+                cls.merge(entry, auto_merge, primary=auto_merge)
         return entry
 
     @classmethod
@@ -44,8 +47,9 @@ class Entry(db.Model):
         assert len(assets) > 1
         assert len({(asset.account, asset.currency) for asset in assets}) == 1
         assert not any(asset.pending for asset in assets)
-        primary = primary if primary else max(assets, key=lambda e: abs(e.amount))
         amount = sum(asset.amount for asset in assets)
+        primary = primary if primary else max(assets,
+                                              key=lambda e: e.amount if amount >= 0 else -e.amount)
         successor = cls.create(primary.account, primary.name, round(amount, 2), primary.currency)
         for asset in assets:
             asset.active = False
@@ -56,3 +60,18 @@ class Entry(db.Model):
         assert amount != 0
         Entry.create(self.account, name, -amount, self.currency, auto_merge=self)
         return db.save(Entry.create(self.account, name, amount, self.currency))
+
+    def modify_amount(self, new_amount):
+        if len(self.transaction.entries) == 2:
+            other = next(e for e in self.transaction.entries
+                         if e != self and e.active and e.currency == self.currency)
+        else:
+            other = next(e for e in self.transaction.entries
+                         if e != self and e.active and e.currency == self.currency
+                         and e.account == self.account.user.default_equity_account)
+        if self.account.type.is_debit == other.account.type.is_debit:
+            other.amount -= new_amount - self.amount
+        else:
+            other.amount += new_amount - self.amount
+        self.amount = new_amount
+        self.transaction.finish()

@@ -19,8 +19,11 @@ class Timezone(IntEnum):
     US = 1
     CN = 2
 
-    def localize(self, dt):
+    def from_utc(self, dt):
         return utc.localize(dt).astimezone(_TZ[self])
+
+    def to_utc(self, dt):
+        return _TZ[self].localize(dt).astimezone(utc)
 
 
 _TZ = {
