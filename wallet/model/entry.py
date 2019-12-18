@@ -10,7 +10,7 @@ class Entry(db.Model):
     pending = db.Column(db.Boolean, nullable=False)
     successor_id = db.Column(db.Integer, db.ForeignKey('entry.id'))
     transaction_id = db.Column(db.Integer, db.ForeignKey('transaction.id'))
-    name = db.Column(db.String(32), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.IntEnum(Currency), nullable=False)
     created = db.Column(db.DateTime, nullable=False, default=db.utcnow)

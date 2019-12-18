@@ -10,7 +10,7 @@ from wallet.util.swapsy import cached_exchange_rate as exchange_rate
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(32), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     amount = db.Column(db.Float, nullable=False, default=0)
     currency = db.Column(db.IntEnum(Currency), nullable=False, default=Currency.USD)
