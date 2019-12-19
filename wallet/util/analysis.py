@@ -74,7 +74,8 @@ class Analysis:
         shrp = (data[candidate].mean() - RISK_FREE_RATE_PER_DAY * (1 + amplifier)) / data[candidate].std()
         return round(shrp, 4), {candidate: 1}, {candidate: similarity[candidate]}
 
-    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, amplifier=0, additions=None):
+    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, amplifier=0,
+                           max_skips=4, additions=None):
         def try_and_try_again():
             shrp, ratio, similarity = self.optimize(min_percent, max_count, amplifier)
             if (shrp, ratio) not in ratios:
@@ -91,7 +92,7 @@ class Analysis:
         ratios = []
 
         candidates = set(self.data.columns)
-        for _ in range(len(group_ratios) * 4):
+        for _ in range(len(group_ratios) * 2):
             try_and_try_again()
             if not candidates:
                 break
@@ -104,13 +105,16 @@ class Analysis:
             self.setup_mask(candidates)
             try_and_try_again()
 
-        ratios.sort()
-        return ratios, self._combine_groups(
-            [r for _, r in ratios[::-1]], group_ratios, set(additions) if additions else set()
-        )
+        ratios.sort(key=lambda e: e[0])
+        return [ratios, *self._combine_groups(
+            [r for _, r in ratios[::-1]],
+            group_ratios,
+            set(additions) if additions else set(),
+            max_skips
+        )]
 
     @staticmethod
-    def _combine_groups(ratios, group_ratios, previous):
+    def _combine_groups(ratios, group_ratios, previous, max_skips):
         def dfs(index, skipped, covered, selected):
             if len(selected) == len(group_ratios):
                 if (covered, -skipped) >= result_weight[0]:
@@ -121,7 +125,7 @@ class Analysis:
                                    for rt, gr in zip(selected, group_ratios)
                                    for s in rt})
                 return
-            if index >= len(ratios) or skipped > len(group_ratios) * 2:
+            if index >= len(ratios) or skipped > max_skips:
                 return
             ratio = ratios[index]
             if len(ratio) > 1 and all(s not in rt for s in ratio for rt in selected):
@@ -132,7 +136,7 @@ class Analysis:
 
         result_weight, result = [(0, 0)], []
         dfs(0, 0, 0, [])
-        return result
+        return result, (result_weight[0][0], -result_weight[0][1])
 
     @classmethod
     def from_securities(cls, data_points, period=5, additions=None, **kwargs):

@@ -43,6 +43,10 @@ class Account(db.Model):
             return f'<Account {self.name!r} {self.type.name} | ¥{self.balance_rmb}>'
         return f'<Account {self.name!r} {self.type.name}>'
 
+    @property
+    def active_entries(self):
+        return self._entries.filter_by(active=True).all()
+
     @classmethod
     def create(cls, user, name, type_):
         return db.save(cls(user=user, name=name, type=type_))
