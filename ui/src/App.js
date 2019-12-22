@@ -1,11 +1,14 @@
 import React from 'react';
-import Button from "@material-ui/core/Button";
+import { ThemeProvider } from '@material-ui/core';
+import Dashboard from "./components/layouts/Dashboard";
+import theme from './theme';
+import './assets/styles/main.scss';
 
 function App() {
   return (
-    <Button variant="contained" color="primary">
-      Hello World
-    </Button>
+    <ThemeProvider theme={theme}>
+      <Dashboard />
+    </ThemeProvider>
   );
 }
 
