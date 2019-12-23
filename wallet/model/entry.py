@@ -62,6 +62,7 @@ class Entry(db.Model):
         return db.save(Entry.create(self.account, name, amount, self.currency))
 
     def modify_amount(self, new_amount):
+        assert self.active
         if len(self.transaction.entries) == 2:
             other = next(e for e in self.transaction.entries
                          if e != self and e.active and e.currency == self.currency)
@@ -73,5 +74,7 @@ class Entry(db.Model):
             other.amount -= new_amount - self.amount
         else:
             other.amount += new_amount - self.amount
+        other.active = (other.amount != 0)
         self.amount = new_amount
+        self.active = (self.amount != 0)
         self.transaction.finish()
