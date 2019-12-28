@@ -1,6 +1,6 @@
 import React from 'react';
-import { AppBar, makeStyles, Toolbar, Typography } from "@material-ui/core";
-import logo from 'src/assets/images/icons8-google-photos.svg'
+import { AppBar, makeStyles, Toolbar, Typography } from '@material-ui/core';
+import logo from '../../assets/images/icons8-google-photos.svg';
 
 const useStyles = makeStyles(theme => ({
   logoImg: {

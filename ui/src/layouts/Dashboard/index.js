@@ -1,8 +1,9 @@
 import React from 'react';
-import TopBar from "./TopBar";
-import { makeStyles } from "@material-ui/core";
+import TopBar from './TopBar';
+import { makeStyles } from '@material-ui/core';
+import Home from '../../views/Home';
 
-const useStyles = makeStyles(theme => ({
+const useStyles = makeStyles({
   container: {
     minHeight: '100vh',
     display: 'flex',
@@ -13,7 +14,7 @@ const useStyles = makeStyles(theme => ({
     maxWidth: '100%',
     overflowX: 'hidden',
   },
-}));
+});
 
 function Dashboard() {
   const classes = useStyles();
@@ -22,6 +23,7 @@ function Dashboard() {
       <TopBar />
       <div className={classes.container}>
         <div className={classes.content}>
+          <Home />
         </div>
       </div>
     </>

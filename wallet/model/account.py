@@ -16,6 +16,17 @@ class AccountType(IntEnum):
     def is_debit(self):
         return self == AccountType.ASSET
 
+    @property
+    def display_name(self):
+        return _ACCOUNT_TYPE_NAMES[self]
+
+
+_ACCOUNT_TYPE_NAMES = {
+    AccountType.ASSET: '资产',
+    AccountType.LIABILITY: '负债',
+    AccountType.EQUITY: '权益',
+}
+
 
 class Account(db.Model):
     id = db.Column(db.Integer, primary_key=True)

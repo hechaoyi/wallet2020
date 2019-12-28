@@ -113,7 +113,7 @@ def _init_worker(app):
 
 def _init_views(app):
     from flask_graphql import GraphQLView
-    from wallet.view.graphql import schema
+    from wallet.view.graphql.schema import schema
     from wallet.view.plivo import bp as plivo_bp
     app.add_url_rule('/', endpoint='root', view_func=lambda: app.send_static_file('index.html'))
     app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=app.debug))
