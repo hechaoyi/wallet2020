@@ -75,7 +75,7 @@ class Analysis:
         return round(shrp, 4), {candidate: 1}, {candidate: similarity[candidate]}
 
     def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, amplifier=0,
-                           max_skips=4, additions=None):
+                           additions=None):
         def try_and_try_again():
             shrp, ratio, similarity = self.optimize(min_percent, max_count, amplifier)
             if (shrp, ratio) not in ratios:
@@ -106,26 +106,27 @@ class Analysis:
             try_and_try_again()
 
         ratios.sort(key=lambda e: e[0])
-        return [ratios, *self._combine_groups(
+        return ratios, self._combine_groups(
             [r for _, r in ratios[::-1]],
             group_ratios,
             set(additions) if additions else set(),
-            max_skips
-        )]
+        )
 
     @staticmethod
-    def _combine_groups(ratios, group_ratios, previous, max_skips):
+    def _combine_groups(ratios, group_ratios, previous):
         def dfs(index, skipped, covered, selected):
             if len(selected) == len(group_ratios):
-                if (covered, -skipped) >= result_weight[0]:
-                    if (covered, -skipped) > result_weight[0]:
-                        result_weight[0] = (covered, -skipped)
-                        del result[:]
-                    result.append({s: round(rt[s] * gr)
-                                   for rt, gr in zip(selected, group_ratios)
-                                   for s in rt})
+                if skipped <= results[covered][0]:
+                    if skipped < results[covered][0]:
+                        results[covered] = (skipped, [])
+                        for i in range(covered):
+                            if results[i][0] >= skipped:
+                                results[i] = (skipped - 1, [])
+                    choice = {s: round(rt[s] * gr)
+                              for rt, gr in zip(selected, group_ratios) for s in rt}
+                    results[covered][1].append([choice, previous & choice.keys()])
                 return
-            if index >= len(ratios) or skipped > max_skips:
+            if index >= len(ratios) or skipped > results[-1][0]:
                 return
             ratio = ratios[index]
             if len(ratio) > 1 and all(s not in rt for s in ratio for rt in selected):
@@ -134,9 +135,9 @@ class Analysis:
             else:
                 dfs(index + 1, skipped, covered, selected)
 
-        result_weight, result = [(0, 0)], []
+        results = [(float('+inf'), []) for _ in range(len(previous) + 1)]
         dfs(0, 0, 0, [])
-        return result, (result_weight[0][0], -result_weight[0][1])
+        return [(i, *r) for i, r in enumerate(results) if r[1]]
 
     @classmethod
     def from_securities(cls, data_points, period=5, additions=None, **kwargs):
