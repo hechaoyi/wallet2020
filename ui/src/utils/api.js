@@ -15,11 +15,11 @@ function reducer(state, action) {
 }
 
 function useApi(query, initialData) {
-  const [state, dispatch] = useReducer(reducer, initialData, data => ({
+  const [state, dispatch] = useReducer(reducer, {
     loading: true,
-    data: data,
+    data: initialData,
     error: false,
-  }));
+  });
   useEffect(() => {
     let mounted = true;
     dispatch({type: 'LOADING'});

@@ -56,6 +56,12 @@ class Entry(db.Model):
             asset.successor = successor
         return successor
 
+    @classmethod
+    def get_list(cls, user):
+        return (cls.query.filter_by(active=True)
+                .join(cls.account).filter_by(user=user)
+                .order_by(cls.created).all())
+
     def split(self, name, amount):
         assert amount != 0
         Entry.create(self.account, name, -amount, self.currency, auto_merge=self)
