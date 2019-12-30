@@ -1,42 +1,39 @@
-import { useEffect, useReducer } from 'react';
 import axios from 'axios';
 
-function reducer(state, action) {
-  switch (action.type) {
-    case 'LOADING':
-      return state.loading ? state : {...state, loading: true};
-    case 'SUCCESS':
-      return {...state, loading: false, data: action.data};
-    case 'FAILURE':
-      return {...state, loading: false, error: true};
-    default:
-      return state;
+export function createReducer(prefix, initialData, responseReducer) {
+  const initialState = {loading: true, data: initialData, error: false};
+
+  function reducer(state = initialState, action) {
+    switch (action.type) {
+      case prefix + '_LOADING':
+        return state.loading ? state : {...state, loading: true};
+      case prefix + '_SUCCESS':
+        return {...state, loading: false, data: action.data};
+      case prefix + '_FAILURE':
+        return {...state, loading: false, error: true};
+      default:
+        return state;
+    }
   }
-}
 
-function useApi(query, initialData) {
-  const [state, dispatch] = useReducer(reducer, {
-    loading: true,
-    data: initialData,
-    error: false,
-  });
-  useEffect(() => {
-    let mounted = true;
-    dispatch({type: 'LOADING'});
-    axios.post('/graphql', {query: query})
-      .then(response => {
-        if (mounted)
-          dispatch({type: 'SUCCESS', data: response.data.data});
-      })
-      .catch(() => {
-        if (mounted)
-          dispatch({type: 'FAILURE'});
-      });
-    return () => {
-      mounted = false;
+  function fetch(query) {
+    return dispatch => {
+      let cancelled = false;
+      dispatch({type: prefix + '_LOADING'});
+      axios.post('/graphql', {query: query})
+        .then(response => {
+          if (!cancelled)
+            dispatch({type: prefix + '_SUCCESS', data: responseReducer(response.data)});
+        })
+        .catch(() => {
+          if (!cancelled)
+            dispatch({type: prefix + '_FAILURE'});
+        });
+      return () => {
+        cancelled = true;
+      };
     };
-  }, [query]);
-  return state;
-}
+  }
 
-export default useApi;
+  return {reducer, fetch};
+}

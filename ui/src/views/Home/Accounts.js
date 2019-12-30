@@ -15,7 +15,7 @@ import {
 } from '@material-ui/core';
 import clsx from 'clsx';
 import Label from '../../components/Label';
-import useApi from '../../utils/api';
+import useAccounts from '../../store/accounts';
 
 const useStyles = makeStyles(theme => ({
   content: {
@@ -47,25 +47,7 @@ const balanceColorForEntry = (type, value) => {
 
 function Accounts() {
   const classes = useStyles();
-  const {data} = useApi(`
-  {
-    accounts {
-      id
-      name
-      type
-      typeName
-      balanceUsd
-      balanceRmb
-      activeEntries {
-        id
-        name
-        amount
-        currency
-        currencySymbol
-      }
-    }
-  }`, {accounts: []});
-  const accounts = data.accounts;
+  const {data: accounts} = useAccounts();
   return (
     <Card>
       <CardHeader title="账户列表" />
