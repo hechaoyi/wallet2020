@@ -3,6 +3,7 @@ import { Redirect } from 'react-router-dom';
 import Dashboard from './layouts/Dashboard';
 import Home from './views/Home';
 import Login from './views/Login';
+import Error404 from './views/Error404';
 
 export default [
   {
@@ -19,18 +20,15 @@ export default [
   {
     path: '/u',
     component: Dashboard,
+    loginPath: '/u/login',
     routes: [
       {
         path: '/u/home',
         exact: true,
         component: Home
       },
-      {
-        component: () => <p>404</p>
-      }
+      {component: Error404}
     ]
   },
-  {
-    component: () => <p>404</p>
-  }
+  {component: Error404}
 ];

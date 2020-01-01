@@ -5,8 +5,13 @@ from wallet.view.graphql.account import Account
 
 
 class Query(ObjectType):
+    health_check = String()
     accounts = List(Account)
     m1 = List(String, name=String(default_value='Individual'), limit=Int(default_value=20))
+
+    @staticmethod
+    def resolve_health_check(*_):
+        return 'success'
 
     @staticmethod
     def resolve_accounts(*_):

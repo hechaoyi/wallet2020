@@ -123,6 +123,7 @@ def _init_views(app):
                      view_func=lambda p: (app.send_static_file('index.html')
                                           if current_user.is_authenticated or p == 'login'
                                           else redirect('/u/login')))
+    app.register_error_handler(404, lambda _: app.send_static_file('index.html'))
     login_manager.init_app(app)
     app.register_blueprint(auth_bp)
     app.add_url_rule('/q', view_func=login_required(

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { renderRoutes } from 'react-router-config';
 import { makeStyles } from '@material-ui/core';
 import TopBar from './TopBar';
+import AuthCheck from './AuthCheck';
 
 const useStyles = makeStyles({
   container: {
@@ -17,15 +18,15 @@ const useStyles = makeStyles({
   },
 });
 
-function Dashboard({route, children}) {
+function Dashboard({route}) {
   const classes = useStyles();
   return (
     <>
       <TopBar />
+      {route.loginPath && <AuthCheck loginPath={route.loginPath} />}
       <div className={classes.container}>
         <div className={classes.content}>
-          {route && renderRoutes(route.routes)}
-          {children}
+          {renderRoutes(route.routes)}
         </div>
       </div>
     </>
@@ -33,8 +34,7 @@ function Dashboard({route, children}) {
 }
 
 Dashboard.propTypes = {
-  route: PropTypes.object,
-  children: PropTypes.node,
+  route: PropTypes.object.isRequired
 };
 
 export default Dashboard;
