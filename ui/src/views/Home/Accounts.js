@@ -42,7 +42,11 @@ const balanceColor = (type, value, classes) => {
 };
 
 const balanceColorForEntry = (type, value) => {
-  return (type === 1 && value > 0) || (type === 2 && value < 0) ? colors.green[400] : colors.red[400];
+  if ((type === 1 && value > 0) || (type === 2 && value < 0))
+    return colors.green[400];
+  if ((type === 1 && value < 0) || (type === 2 && value > 0))
+    return colors.red[400];
+  return colors.blueGrey[400];
 };
 
 function Accounts() {

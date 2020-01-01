@@ -1,7 +1,8 @@
 import React from 'react';
-import TopBar from './TopBar';
+import PropTypes from 'prop-types';
+import { renderRoutes } from 'react-router-config';
 import { makeStyles } from '@material-ui/core';
-import Home from '../../views/Home';
+import TopBar from './TopBar';
 
 const useStyles = makeStyles({
   container: {
@@ -16,18 +17,24 @@ const useStyles = makeStyles({
   },
 });
 
-function Dashboard() {
+function Dashboard({route, children}) {
   const classes = useStyles();
   return (
     <>
       <TopBar />
       <div className={classes.container}>
         <div className={classes.content}>
-          <Home />
+          {route && renderRoutes(route.routes)}
+          {children}
         </div>
       </div>
     </>
   );
 }
+
+Dashboard.propTypes = {
+  route: PropTypes.object,
+  children: PropTypes.node,
+};
 
 export default Dashboard;

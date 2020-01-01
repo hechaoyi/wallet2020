@@ -1,6 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { AppBar, makeStyles, Toolbar, Typography } from '@material-ui/core';
-import logo from '../../assets/images/icons8-google-photos.svg';
+import logo from '../assets/images/icons8-google-photos.svg';
 
 const useStyles = makeStyles(theme => ({
   logoImg: {
@@ -14,7 +15,9 @@ function TopBar() {
   return (
     <AppBar>
       <Toolbar variant="dense">
-        <img src={logo} alt="logo" className={classes.logoImg} />
+        <Link to="/">
+          <img src={logo} alt="logo" className={classes.logoImg} />
+        </Link>
         <Typography variant="h5" color="inherit">我的账本</Typography>
       </Toolbar>
     </AppBar>

@@ -8,9 +8,9 @@ export function createReducer(prefix, initialData, responseReducer) {
       case prefix + '_LOADING':
         return state.loading ? state : {...state, loading: true};
       case prefix + '_SUCCESS':
-        return {...state, loading: false, data: action.data};
+        return {...state, loading: false, data: action.data, error: false};
       case prefix + '_FAILURE':
-        return {...state, loading: false, error: true};
+        return {...state, loading: false, data: initialData, error: true};
       default:
         return state;
     }
@@ -20,7 +20,7 @@ export function createReducer(prefix, initialData, responseReducer) {
     return dispatch => {
       let cancelled = false;
       dispatch({type: prefix + '_LOADING'});
-      axios.post('/graphql', {query: query})
+      axios.post('/q', {query: query})
         .then(response => {
           if (!cancelled)
             dispatch({type: prefix + '_SUCCESS', data: responseReducer(response.data)});

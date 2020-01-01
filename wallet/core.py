@@ -1,9 +1,9 @@
 from datetime import datetime
 from functools import wraps
 from logging import INFO
-from os import environ, fork, path
+from os import environ, fork, path, urandom
 
-from flask import Flask
+from flask import Flask, redirect
 from flask.json import dumps
 from flask_sqlalchemy import SQLAlchemy
 from redis import from_url
@@ -24,6 +24,7 @@ def create_app(compact=False):
 
 def _init_configurations(app):
     app.config.update(
+        SECRET_KEY=urandom(16),
         SQLALCHEMY_DATABASE_URI=environ['DATABASE_URL'],
         SQLALCHEMY_ECHO=app.debug,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
@@ -112,11 +113,20 @@ def _init_worker(app):
 
 
 def _init_views(app):
+    from flask_login import current_user, login_required
     from flask_graphql import GraphQLView
+    from wallet.view.auth import bp as auth_bp, login_manager
     from wallet.view.graphql.schema import schema
     from wallet.view.plivo import bp as plivo_bp
-    app.add_url_rule('/', endpoint='root', view_func=lambda: app.send_static_file('index.html'))
-    app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=app.debug))
+    app.add_url_rule('/', endpoint='root', view_func=lambda: redirect('/u/home'))
+    app.add_url_rule('/u/<path:p>', endpoint='frontend',
+                     view_func=lambda p: (app.send_static_file('index.html')
+                                          if current_user.is_authenticated or p == 'login'
+                                          else redirect('/u/login')))
+    login_manager.init_app(app)
+    app.register_blueprint(auth_bp)
+    app.add_url_rule('/q', view_func=login_required(
+        GraphQLView.as_view('graphql', schema=schema, graphiql=app.debug)))
     app.register_blueprint(plivo_bp, url_prefix='/plivo')
 
 

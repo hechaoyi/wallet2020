@@ -12,6 +12,7 @@ scipy = "*"
 [packages]
 flask-migrate = "*"
 flask-graphql = "*"
+flask-login = "*"
 graphene = "*"
 requests = "*"
 gunicorn = "*"

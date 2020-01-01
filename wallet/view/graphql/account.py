@@ -1,11 +1,11 @@
 from collections import defaultdict
 
 from flask import g
+from flask_login import current_user
 from graphene import Float, Int, List, ObjectType, String
 
 from wallet.model.account import Account as AccountModel
 from wallet.model.entry import Entry as EntryModel
-from wallet.model.user import User
 from wallet.view.graphql.entry import Entry
 
 
@@ -25,15 +25,13 @@ class Account(ObjectType):
     @staticmethod
     def resolve_active_entries(parent, _):
         if 'active_entries' not in g:
-            user = User.query.filter_by(name='chaoyi').first()  # TODO
             entries = defaultdict(list)
-            for entry in EntryModel.get_list(user):
+            for entry in EntryModel.get_list(current_user):
                 entries[entry.account].append(entry)
             g.active_entries = entries
         return g.active_entries[parent]
 
     @staticmethod
     def get_list():
-        user = User.query.filter_by(name='chaoyi').first()  # TODO
-        accounts = AccountModel.get_list(user)
+        accounts = AccountModel.get_list(current_user)
         return [a for a in accounts if a.balance_usd or a.balance_rmb]
