@@ -55,12 +55,13 @@ class Transaction(db.Model):
         amounts_without_zero = {c: a for c, a in amounts.items() if a != 0}
         if len(amounts_without_zero) == 1:
             currency, amount = next(iter(amounts_without_zero.items()))
-            self.add_entry(self.user.default_equity_account,
-                           round(amount, 2), currency, name, False, auto_merge)
+            self.add_entry(self.user.default_equity_account, amount, currency, name, False, auto_merge)
         elif len(amounts_without_zero) == 2:
-            # TODO equity exchange
             self.exchange_rate_assumed = round(-amounts[Currency.RMB] / amounts[Currency.USD], 4)
             assert abs(self.exchange_rate_assumed / exchange_rate() - 1) < .01
+            assert not auto_merge
+            self.add_entry(self.user.default_equity_account, amounts[Currency.RMB], Currency.RMB, name)
+            self.add_entry(self.user.default_equity_account, amounts[Currency.USD], Currency.USD, name)
         entry = max(self.entries, key=lambda e: abs(e.usd_amount))
         self.amount = abs(entry.amount)
         self.currency = entry.currency

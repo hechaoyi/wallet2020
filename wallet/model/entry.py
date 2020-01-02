@@ -33,6 +33,7 @@ class Entry(db.Model):
 
     @classmethod
     def create(cls, account, name, amount, currency, transaction=None, pending=False, auto_merge=None):
+        amount = round(amount, 2)
         entry = cls(account=account, name=name, amount=amount, currency=currency,
                     transaction=transaction, active=(amount != 0), pending=pending)
         if auto_merge:
@@ -50,7 +51,7 @@ class Entry(db.Model):
         amount = sum(asset.amount for asset in assets)
         primary = primary if primary else max(assets,
                                               key=lambda e: e.amount if amount >= 0 else -e.amount)
-        successor = cls.create(primary.account, primary.name, round(amount, 2), primary.currency)
+        successor = cls.create(primary.account, primary.name, amount, primary.currency)
         for asset in assets:
             asset.active = False
             asset.successor = successor
@@ -77,10 +78,10 @@ class Entry(db.Model):
                          if e != self and e.active and e.currency == self.currency
                          and e.account == self.account.user.default_equity_account)
         if self.account.type.is_debit == other.account.type.is_debit:
-            other.amount -= new_amount - self.amount
+            other.amount -= round(new_amount - self.amount, 2)
         else:
-            other.amount += new_amount - self.amount
+            other.amount += round(new_amount - self.amount, 2)
         other.active = (other.amount != 0)
-        self.amount = new_amount
+        self.amount = round(new_amount, 2)
         self.active = (self.amount != 0)
         self.transaction.finish()
