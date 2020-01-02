@@ -69,7 +69,7 @@ class M1Portfolio(db.Model):
 
         result = []
         for name, performance in m1.items():
-            if performance['startValue']['value'] == 0 and performance['endValue']['value'] == 0:
+            if not performance or (performance['startValue']['value'] == 0 and performance['endValue']['value'] == 0):
                 continue
             inst = cls.query.filter_by(name=name).order_by(cls.date.desc()).first()
             if inst and inst.date == today:
