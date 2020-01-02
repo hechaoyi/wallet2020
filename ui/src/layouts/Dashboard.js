@@ -2,7 +2,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { renderRoutes } from 'react-router-config';
 import { makeStyles } from '@material-ui/core';
+import clsx from 'clsx';
 import TopBar from './TopBar';
+import NavBar from './NavBar';
 import AuthCheck from './AuthCheck';
 
 const useStyles = makeStyles({
@@ -16,6 +18,9 @@ const useStyles = makeStyles({
     maxWidth: '100%',
     overflowX: 'hidden',
   },
+  contentWithNav: {
+    paddingLeft: 160
+  }
 });
 
 function Dashboard({route}) {
@@ -23,9 +28,13 @@ function Dashboard({route}) {
   return (
     <>
       <TopBar />
+      {route.showNavBar && <NavBar />}
       {route.loginPath && <AuthCheck loginPath={route.loginPath} />}
       <div className={classes.container}>
-        <div className={classes.content}>
+        <div className={clsx({
+          [classes.content]: true,
+          [classes.contentWithNav]: route.showNavBar
+        })}>
           {renderRoutes(route.routes)}
         </div>
       </div>

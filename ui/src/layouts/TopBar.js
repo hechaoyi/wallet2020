@@ -4,6 +4,9 @@ import { AppBar, makeStyles, Toolbar, Typography } from '@material-ui/core';
 import logo from '../assets/images/icons8-google-photos.svg';
 
 const useStyles = makeStyles(theme => ({
+  root: {
+    boxShadow: 'none',
+  },
   logoImg: {
     height: 32,
     marginRight: theme.spacing(1)
@@ -13,7 +16,7 @@ const useStyles = makeStyles(theme => ({
 function TopBar() {
   const classes = useStyles();
   return (
-    <AppBar>
+    <AppBar className={classes.root}>
       <Toolbar variant="dense">
         <Link to="/">
           <img src={logo} alt="logo" className={classes.logoImg} />

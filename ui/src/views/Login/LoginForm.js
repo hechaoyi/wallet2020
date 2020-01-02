@@ -1,7 +1,7 @@
 import React, { useReducer } from 'react';
 import PropTypes from 'prop-types';
 import { useHistory } from 'react-router';
-import { Button, makeStyles, TextField } from '@material-ui/core';
+import { Button, CircularProgress, makeStyles, TextField } from '@material-ui/core';
 import { validate } from 'validate.js';
 import axios from 'axios';
 import { stringify } from 'qs';
@@ -17,8 +17,18 @@ const useStyles = makeStyles((theme) => ({
     }
   },
   submitButton: {
-    marginTop: theme.spacing(2),
     width: '100%'
+  },
+  buttonWrapper: {
+    marginTop: theme.spacing(2),
+    position: 'relative',
+  },
+  buttonProgress: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -12,
+    marginLeft: -12,
   },
 }));
 
@@ -35,7 +45,8 @@ const initialState = {
   values: {},
   touched: {},
   errors: {},
-  isValid: false
+  isValid: false,
+  isLoading: false
 };
 
 function reducer(state, action) {
@@ -45,17 +56,18 @@ function reducer(state, action) {
       const values = {...state.values, [target.name]: target.value};
       const touched = {...state.touched, [target.name]: true};
       const errors = validate(values, schema, {fullMessages: false});
-      return {values, touched, errors: errors || {}, isValid: !errors};
+      return {values, touched, errors: errors || {}, isValid: !errors, isLoading: false};
     case 'SUBMIT':
       axios.post('/login', stringify(state.values))
         .then(() => action.history.push('/'))
         .catch(() => action.dispatch({type: 'FAILURE'}));
-      return {...state, isValid: false};
+      return {...state, isValid: false, isLoading: true};
     case 'FAILURE':
       return {
         ...state,
         errors: {username: ['用户名或密码不正确'], password: ['用户名或密码不正确']},
-        isValid: false
+        isValid: false,
+        isLoading: false
       };
     default:
       throw new Error();
@@ -100,13 +112,16 @@ function LoginForm({className}) {
           value={state.values.password || ''}
           variant="outlined" />
       </div>
-      <Button
-        className={classes.submitButton}
-        color="secondary"
-        disabled={!state.isValid}
-        size="large"
-        type="submit"
-        variant="contained">登录</Button>
+      <div className={classes.buttonWrapper}>
+        <Button
+          className={classes.submitButton}
+          color="secondary"
+          disabled={!state.isValid}
+          size="large"
+          type="submit"
+          variant="contained">登录</Button>
+        {state.isLoading && <CircularProgress size={24} className={classes.buttonProgress} />}
+      </div>
     </form>
   );
 }

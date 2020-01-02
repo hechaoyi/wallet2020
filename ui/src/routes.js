@@ -20,6 +20,7 @@ export default [
   {
     path: '/u',
     component: Dashboard,
+    showNavBar: true,
     loginPath: '/u/login',
     routes: [
       {
