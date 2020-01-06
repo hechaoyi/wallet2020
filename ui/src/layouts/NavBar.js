@@ -1,6 +1,7 @@
-import React from 'react';
-import { Drawer, List, ListSubheader, makeStyles } from '@material-ui/core';
+import React, { useState } from 'react';
+import { Button, Divider, Drawer, List, ListSubheader, makeStyles } from '@material-ui/core';
 import {
+  Add as AddIcon,
   BarChart as BarChartIcon,
   Dashboard as DashboardIcon,
   Home as HomeIcon,
@@ -8,6 +9,7 @@ import {
   Settings as SettingsIcon
 } from '@material-ui/icons';
 import NavItem from '../components/NavItem';
+import AddTransactionModal from '../views/AddTransactionModal';
 
 const useStyles = makeStyles((theme) => ({
   desktopDrawer: {
@@ -22,17 +24,30 @@ const useStyles = makeStyles((theme) => ({
   },
   navigation: {
     overflow: 'auto',
-    padding: theme.spacing(0, 2, 2, 2),
+    padding: theme.spacing(2),
     flexGrow: 1
+  },
+  addButton: {
+    marginBottom: theme.spacing(2),
+    justifyContent: 'flex-start'
+  },
+  addIcon: {
+    marginRight: theme.spacing(1)
   },
 }));
 
 function NavBar() {
   const classes = useStyles();
+  const [openAddTransactionModal, setOpenAddTransactionModal] = useState(false);
   return (
     <Drawer variant="persistent" open classes={{paper: classes.desktopDrawer}}>
       <div className={classes.root}>
         <nav className={classes.navigation}>
+          <Button variant="contained" color="primary" className={classes.addButton} fullWidth
+                  onClick={() => setOpenAddTransactionModal(true)}>
+            <AddIcon className={classes.addIcon} /> 记一笔
+          </Button>
+          <Divider />
           <List>
             <NavItem href="/u/home" title="总览" icon={HomeIcon} />
           </List>
@@ -59,6 +74,9 @@ function NavBar() {
           </List>
         </nav>
       </div>
+      {openAddTransactionModal && (
+        <AddTransactionModal onClose={() => setOpenAddTransactionModal(false)} />
+      )}
     </Drawer>
   );
 }

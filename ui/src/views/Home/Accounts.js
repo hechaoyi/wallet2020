@@ -68,7 +68,7 @@ function Accounts() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {accounts.map(account => account.type !== 3 && (
+            {accounts.map(account => (
               <TableRow hover key={account.id}>
                 <TableCell>{account.name}</TableCell>
                 <TableCell>{account.typeName}</TableCell>

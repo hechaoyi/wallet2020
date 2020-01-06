@@ -1,4 +1,4 @@
-import React, { useReducer } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import PropTypes from 'prop-types';
 import { useHistory } from 'react-router';
 import { Button, CircularProgress, makeStyles, TextField } from '@material-ui/core';
@@ -88,6 +88,13 @@ function LoginForm({className}) {
     event.preventDefault();
     dispatch({type: 'SUBMIT', history, dispatch});
   };
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      axios.post('/q', {query: '{healthCheck}'}).then(() => history.push('/'));
+    }, 3000);
+    return () => clearInterval(id);
+  }, [history]);
 
   return (
     <form className={className} onSubmit={handleSubmit}>

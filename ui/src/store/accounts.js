@@ -1,5 +1,5 @@
-import { useDispatch, useSelector } from 'react-redux';
 import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { createReducer } from '../utils/api';
 
 const query = `
@@ -20,12 +20,13 @@ const query = `
       }
     }
   }`;
-const {reducer, fetch} =
+const {reducer, load, reset} =
   createReducer('ACCOUNTS', [], data => data.data.accounts);
 
 export { reducer as accountsReducer };
 export default function useAccounts() {
+  const data = useSelector(state => state.accounts);
   const dispatch = useDispatch();
-  useEffect(() => dispatch(fetch(query)), [dispatch]);
-  return useSelector(state => state.accounts);
+  useEffect(() => dispatch(load(query)), [data.requested, dispatch]);
+  return {loading: data.loading, data: data.data, reset: () => dispatch(reset())};
 }
