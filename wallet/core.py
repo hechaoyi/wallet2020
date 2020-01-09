@@ -1,7 +1,8 @@
 from datetime import datetime
 from functools import wraps
 from logging import INFO
-from os import environ, fork, path, urandom
+from os import environ, fork, path
+from random import getrandbits, seed
 
 from flask import Flask
 from flask.json import dumps
@@ -23,8 +24,10 @@ def create_app(compact=False):
 
 
 def _init_configurations(app):
+    seed(environ.get('SECRET_KEY', ''))
+    secret_key = bytes(getrandbits(8) for _ in range(16))
     app.config.update(
-        SECRET_KEY=urandom(16),
+        SECRET_KEY=secret_key,
         SQLALCHEMY_DATABASE_URI=environ['DATABASE_URL'],
         SQLALCHEMY_ECHO=app.debug,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
