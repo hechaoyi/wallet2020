@@ -31,11 +31,19 @@ class M1Portfolio(db.Model):
     def __str__(self):
         return f'[{self.date}] {self.value} | {self.gain}/{self.rate}%'
 
-    def inspect(self, previous=None):
+    def inspect(self, previous=None, fix_start_value=False):
         if previous:
             assert self.name == previous.name
+            if (fix_start_value and self.start_value != previous.value
+                    and abs(self.start_value - previous.value) < 1):
+                diff = self.start_value - previous.value
+                current_app.logger.info(f'fixed start value, capital gain, gain by {diff}')
+                self.start_value = previous.value
+                self.capital_gain = round(self.capital_gain + diff, 2)
+                self.gain = round(self.gain + diff, 2)
             assert self.start_value == previous.value, \
                 f'start value not matched {self.start_value}, expected {previous.value}'
+
         expected_capital_gain = round(self.value - self.start_value - self.net_cash_flow, 2)
         assert self.capital_gain == expected_capital_gain, \
             f'capital gain not matched {self.capital_gain}, expected {expected_capital_gain}'
@@ -93,7 +101,7 @@ class M1Portfolio(db.Model):
             if last:
                 assert start_date == last.date, \
                     f'start date not matched {start_date}, expected {last.date}'
-            inst.inspect(last)
+            inst.inspect(last, fix_start_value=True)
 
     @classmethod
     def net_value_series(cls, name, limit):
