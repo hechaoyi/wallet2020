@@ -35,8 +35,8 @@ class M1Portfolio(db.Model):
         if previous:
             assert self.name == previous.name
             if (fix_start_value and self.start_value != previous.value
-                    and abs(self.start_value - previous.value) < 1):
-                diff = self.start_value - previous.value
+                    and abs(self.start_value - previous.value) < 3):
+                diff = round(self.start_value - previous.value, 2)
                 current_app.logger.info(f'fixed start value, capital gain, gain by {diff}')
                 self.start_value = previous.value
                 self.capital_gain = round(self.capital_gain + diff, 2)
