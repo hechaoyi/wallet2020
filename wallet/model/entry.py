@@ -44,14 +44,16 @@ class Entry(db.Model):
         return entry
 
     @classmethod
-    def merge(cls, *assets, primary=None):
+    def merge(cls, *assets, primary=None, name=None):
         assert len(assets) > 1
         assert len({(asset.account, asset.currency) for asset in assets}) == 1
         assert not any(asset.pending for asset in assets)
         amount = sum(asset.amount for asset in assets)
         primary = primary if primary else max(assets,
                                               key=lambda e: e.amount if amount >= 0 else -e.amount)
-        successor = cls.create(primary.account, primary.name, amount, primary.currency)
+        successor = cls.create(primary.account,
+                               name if name else primary.name,
+                               amount, primary.currency)
         for asset in assets:
             asset.active = False
             asset.successor = successor
