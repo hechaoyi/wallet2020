@@ -33,5 +33,4 @@ class Account(ObjectType):
 
     @staticmethod
     def get_list():
-        accounts = AccountModel.get_list(current_user)
-        return [a for a in accounts if a.balance_usd or a.balance_rmb]
+        return AccountModel.get_list(current_user)

@@ -68,7 +68,7 @@ function Accounts() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {accounts.map(account => (
+            {accounts.map(account => (account.balanceUsd !== 0 || account.balanceRmb !== 0) && (
               <TableRow hover key={account.id}>
                 <TableCell>{account.name}</TableCell>
                 <TableCell>{account.typeName}</TableCell>

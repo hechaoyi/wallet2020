@@ -35,7 +35,7 @@ const useStyles = makeStyles((theme) => ({
     transform: 'translate(-50%, -50%)',
     outline: 'none',
     boxShadow: theme.shadows[20],
-    width: 720,
+    width: 800,
     maxHeight: '100%',
     overflowY: 'auto',
     maxWidth: '100%'
@@ -237,7 +237,7 @@ function AddTransactionModal({onClose}) {
                       </TextField>
                     </Badge>
                   </Grid>
-                  <Grid item xs={3} className={classes.labelWrapper}>
+                  <Grid item xs={2} className={classes.labelWrapper}>
                     <FormControlLabel
                       control={
                         <RedGreenSwitch name={`${i}.inflow`} size="small"
@@ -248,7 +248,7 @@ function AddTransactionModal({onClose}) {
                         (state.values.items[i].inflow ? '收入' : '支出') :
                         (state.values.items[i].inflow ? '权益增加' : '权益减少')} />
                   </Grid>
-                  <Grid item xs={2}>
+                  <Grid item xs={3}>
                     <TextField label="金额" name={`${i}.amount`} variant="outlined" margin="dense" fullWidth
                                InputProps={state.values.items[i].amount ? {
                                  startAdornment: <InputAdornment position="start">
