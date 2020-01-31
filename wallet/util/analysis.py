@@ -34,6 +34,9 @@ class Analysis:
             self.data = self.origin_data
             self.origin_data = None
 
+    def statistics(self):
+        return _moving_average_statistics(self.data, self.period)
+
     def screen(self):
         self.drop_mask()
         stat = _moving_average_statistics(self.data, self.period)
@@ -92,7 +95,7 @@ class Analysis:
         ratios = []
 
         candidates = set(self.data.columns)
-        for _ in range(len(group_ratios) * 2):
+        for _ in range(len(group_ratios) * 3):
             try_and_try_again()
             if not candidates:
                 break

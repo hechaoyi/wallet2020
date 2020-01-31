@@ -22,6 +22,7 @@ class M1Portfolio(db.Model):
     net_cash_flow = db.Column(db.Float, nullable=False)
     capital_gain = db.Column(db.Float, nullable=False)
     dividend_gain = db.Column(db.Float, nullable=False)
+    cost_basis = db.Column(db.Float)
     updated = db.Column(db.DateTime, nullable=False, default=db.utcnow, onupdate=db.utcnow)
 
     __table_args__ = (
@@ -96,6 +97,7 @@ class M1Portfolio(db.Model):
             inst.net_cash_flow = performance['netCashFlow']
             inst.capital_gain = performance['capitalGain']
             inst.dividend_gain = performance['earnedDividends']
+            inst.cost_basis = round(inst.net_cash_flow, -2) + (last.cost_basis if last else 0)
             current_app.logger.info(f'{name}: {inst}')
             result.append((inst, last,
                            tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()))
