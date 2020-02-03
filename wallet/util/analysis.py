@@ -34,14 +34,12 @@ class Analysis:
             self.data = self.origin_data
             self.origin_data = None
 
-    def statistics(self):
-        return _moving_average_statistics(self.data, self.period)
-
-    def screen(self):
+    def screen(self, std_skew=True):
         self.drop_mask()
         stat = _moving_average_statistics(self.data, self.period)
-        stat = stat[(stat['shrp'] > 0) & (stat['std'] > .1) & (abs(stat['skew']) < 1)
-                    & (stat['count'] == stat['count'].max())]
+        stat = stat[(stat['shrp'] > 0) & (stat['yield'] > 0) & (stat['count'] == stat['count'].max())]
+        if std_skew:
+            stat = stat[(stat['std'] > .1) & (abs(stat['skew']) < 1)]
         self.setup_mask(stat.index)
         return stat
 
@@ -150,8 +148,8 @@ class Analysis:
         return cls(symbols, data_points, period)
 
     @classmethod
-    def from_funds(cls, data_points, period=5, additions=None, max_exp=1, *, categories):
-        symbols = reduce(concat, (screen_funds(*c.split(','), max_exp=max_exp) for c in categories))
+    def from_funds(cls, data_points, period=5, additions=None, *, categories, **kwargs):
+        symbols = reduce(concat, (screen_funds(*c.split(','), **kwargs) for c in categories))
         if additions:
             symbols += additions
         return cls(symbols, data_points, period)

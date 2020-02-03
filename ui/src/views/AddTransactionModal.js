@@ -111,9 +111,11 @@ function reducer(state, action) {
       const errors = validate(values, schema, {fullMessages: false});
       return {...state, values, touched, errors: errors || {}, isValid: !errors};
     case 'ADD_ITEM':
+      const last_item = state.values.items[state.values.items.length - 1];
+      const new_item = {inflow: last_item.inflow, currencyUS: last_item.currencyUS};
       return {
         ...state, isValid: false,
-        values: {...state.values, items: [...state.values.items, {inflow: false, currencyUS: true}]},
+        values: {...state.values, items: [...state.values.items, new_item]},
         touched: {...state.touched, items: [...state.touched.items, {}]}
       };
     case 'DEL_ITEM':

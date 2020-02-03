@@ -58,7 +58,7 @@ class Transaction(db.Model):
             self.add_entry(self.user.default_equity_account, amount, currency, name, False, auto_merge)
         elif len(amounts_without_zero) == 2:
             self.exchange_rate_assumed = round(-amounts[Currency.RMB] / amounts[Currency.USD], 4)
-            assert abs(self.exchange_rate_assumed / exchange_rate() - 1) < .01
+            assert abs(self.exchange_rate_assumed / exchange_rate() - 1) < .02
             assert not auto_merge
             self.add_entry(self.user.default_equity_account, amounts[Currency.RMB], Currency.RMB, name)
             self.add_entry(self.user.default_equity_account, amounts[Currency.USD], Currency.USD, name)
