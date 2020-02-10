@@ -43,7 +43,7 @@ def test_create_transaction_with_currency_exchange(user):
 
 
 def test_create_transaction_with_erroneous_currency_exchange(user):
-    rate = exchange_rate() * 1.015
+    rate = exchange_rate() * 1.025
     account = Account.create(user, 'test', AccountType.ASSET)
     category = Category.create(user, 'test')
     txn = Transaction.create(user, 'test', category, datetime.utcnow(), Timezone.US)

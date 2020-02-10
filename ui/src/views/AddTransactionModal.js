@@ -226,7 +226,7 @@ function reducer(state, action) {
             ok
           }
         }`;
-      const input = state.values;
+      const input = {...state.values, templateName: undefined};
       axios.post('/q', {query, variables: {input}})
         .then(response => {
           if (!response.data.errors) {

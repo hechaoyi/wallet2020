@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Button, Divider, Drawer, List, ListSubheader, makeStyles } from '@material-ui/core';
 import {
+  AccountBalance as BudgetIcon,
   Add as AddIcon,
   BarChart as BarChartIcon,
   Dashboard as DashboardIcon,
   Home as HomeIcon,
-  ListAlt as ListAltIcon,
-  Settings as SettingsIcon
+  ListAlt as TransactionIcon,
+  Settings as SettingsIcon,
+  ViewWeek as AccountIcon,
 } from '@material-ui/icons';
 import NavItem from '../components/NavItem';
 import SplitButton from '../components/SplitButton';
@@ -68,10 +70,9 @@ function NavBar() {
           </List>
           <List>
             <ListSubheader>收支</ListSubheader>
-            <NavItem href="/u/xxxx" title="xxxx" icon={ListAltIcon} />
-            <NavItem href="/u/xxxx" title="xxxx" icon={ListAltIcon} />
-            <NavItem href="/u/xxxx" title="xxxx" icon={ListAltIcon} />
-            <NavItem href="/u/xxxx" title="xxxx" icon={ListAltIcon} />
+            <NavItem href="/u/transaction" title="交易列表" icon={TransactionIcon} />
+            <NavItem href="/u/account" title="账户详情" icon={AccountIcon} />
+            <NavItem href="/u/budget" title="预算管理" icon={BudgetIcon} />
           </List>
           <List>
             <ListSubheader>统计</ListSubheader>
