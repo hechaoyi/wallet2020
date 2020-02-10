@@ -9,6 +9,8 @@ import {
   Settings as SettingsIcon
 } from '@material-ui/icons';
 import NavItem from '../components/NavItem';
+import SplitButton from '../components/SplitButton';
+import useTransactionTemplates from '../store/templates';
 import AddTransactionModal from '../views/AddTransactionModal';
 
 const useStyles = makeStyles((theme) => ({
@@ -38,15 +40,28 @@ const useStyles = makeStyles((theme) => ({
 
 function NavBar() {
   const classes = useStyles();
+  const {data: transactionTemplatesData} = useTransactionTemplates();
   const [openAddTransactionModal, setOpenAddTransactionModal] = useState(false);
+  const [transactionTemplate, setTransactionTemplate] = useState(undefined);
+  const handleAddTransactionClick = (index = -1) => {
+    setOpenAddTransactionModal(true);
+    setTransactionTemplate(index >= 0 ? transactionTemplatesData[index] : undefined);
+  };
   return (
     <Drawer variant="persistent" open classes={{paper: classes.desktopDrawer}}>
       <div className={classes.root}>
         <nav className={classes.navigation}>
-          <Button variant="contained" color="primary" className={classes.addButton} fullWidth
-                  onClick={() => setOpenAddTransactionModal(true)}>
-            <AddIcon className={classes.addIcon} /> 记一笔
-          </Button>
+          {transactionTemplatesData.length > 0 ?
+            <SplitButton primaryOption="记一笔"
+                         secondaryOptions={transactionTemplatesData.map(e => e.templateName)}
+                         primaryHandleClick={handleAddTransactionClick}
+                         secondaryHandleClick={handleAddTransactionClick} />
+            :
+            <Button variant="contained" color="primary" className={classes.addButton} fullWidth
+                    onClick={handleAddTransactionClick}>
+              <AddIcon className={classes.addIcon} /> 记一笔
+            </Button>
+          }
           <Divider />
           <List>
             <NavItem href="/u/home" title="总览" icon={HomeIcon} />
@@ -75,7 +90,7 @@ function NavBar() {
         </nav>
       </div>
       {openAddTransactionModal && (
-        <AddTransactionModal onClose={() => setOpenAddTransactionModal(false)} />
+        <AddTransactionModal onClose={() => setOpenAddTransactionModal(false)} template={transactionTemplate} />
       )}
     </Drawer>
   );

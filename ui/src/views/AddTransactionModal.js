@@ -8,6 +8,10 @@ import {
   CardContent,
   CardHeader,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   Grid,
@@ -18,13 +22,21 @@ import {
   Modal,
   TextField
 } from '@material-ui/core';
-import { AddBox as AddBoxIcon, Check as CheckIcon, Close as CloseIcon, Delete as DeleteIcon } from '@material-ui/icons';
+import {
+  AddBox as AddBoxIcon,
+  Backspace as BackspaceIcon,
+  Bookmark as BookmarkIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon
+} from '@material-ui/icons';
 import { DateTimePicker } from '@material-ui/pickers';
 import { validate } from 'validate.js';
 import moment from 'moment';
 import axios from 'axios';
 import useCategories from '../store/categories';
 import useAccounts from '../store/accounts';
+import useTransactionTemplates from '../store/templates';
 import RedGreenSwitch from '../components/RedGreenSwitch';
 
 const useStyles = makeStyles((theme) => ({
@@ -81,15 +93,26 @@ const schema = {
   }
 };
 
-const initialState = {
-  values: {time: moment(), timezoneUS: true, items: [{inflow: false, currencyUS: true}]},
-  touched: {items: [{}]},
-  errors: {},
-  isValid: false,
-  isLoading: false
+const initialState = (template = {
+  timezoneUS: true, items: [{inflow: false, currencyUS: true}]
+}) => {
+  const {id: templateId, ...templateObject} = template;
+  return {
+    values: {...templateObject, time: moment()},
+    touched: {items: template.items.map(_ => ({}))},
+    errors: {},
+    isValid: false,
+    isLoading: false,
+    template: {
+      nameDialogOpen: false,
+      isLoading: false,
+      templateId,
+    }
+  };
 };
 
 function reducer(state, action) {
+  let query;
   switch (action.type) {
     case 'CHANGE':
       const {name, value} = action;
@@ -127,9 +150,78 @@ function reducer(state, action) {
       state.values.items.splice(action.index, 1);
       state.touched.items.splice(action.index, 1);
       return state;
+    case 'OPEN_TEMPLATE_NAME':
+      return {...state, template: {...state.template, nameDialogOpen: true}};
+    case 'CLOSE_TEMPLATE_NAME':
+      return {
+        ...state,
+        values: {...state.values, templateName: ''},
+        template: {...state.template, nameDialogOpen: false}
+      };
+    case 'SAVE_TEMPLATE':
+      query = `
+        mutation($template: String!) {
+          addTransactionTemplate(template: $template) {
+            ok
+            templateId
+          }
+        }`;
+      const template = JSON.stringify({
+        templateName: state.values.templateName || '未命名模板',
+        category: state.values.category,
+        timezoneUS: state.values.timezoneUS,
+        description: state.values.description,
+        items: state.values.items.map(item => ({
+          account: item.account,
+          inflow: item.inflow,
+          amount: item.amount,
+          currencyUS: item.currencyUS,
+          description: item.description,
+        }))
+      });
+      axios.post('/q', {query, variables: {template}})
+        .then(response => {
+          if (!response.data.errors) {
+            action.transactionTemplatesReset();
+            action.dispatch({
+              type: 'TEMPLATE_SAVED',
+              templateId: response.data.data.addTransactionTemplate.templateId
+            });
+          } else {
+            action.dispatch({type: 'FAILURE', message: response.data.errors[0].message});
+          }
+        })
+        .catch(error => action.dispatch({type: 'FAILURE', message: error.message}));
+      return {
+        ...state,
+        values: {...state.values, templateName: ''},
+        template: {...state.template, nameDialogOpen: false, isLoading: true}
+      };
+    case 'TEMPLATE_SAVED':
+      return {...state, template: {...state.template, isLoading: false, templateId: action.templateId}};
+    case 'DELETE_TEMPLATE':
+      query = `
+        mutation($templateId: String!) {
+          delTransactionTemplate(templateId: $templateId) {
+            ok
+          }
+        }`;
+      axios.post('/q', {query, variables: {templateId: state.template.templateId}})
+        .then(response => {
+          if (!response.data.errors) {
+            action.transactionTemplatesReset();
+            action.dispatch({type: 'TEMPLATE_DELETED'});
+          } else {
+            action.dispatch({type: 'FAILURE', message: response.data.errors[0].message});
+          }
+        })
+        .catch(error => action.dispatch({type: 'FAILURE', message: error.message}));
+      return {...state, template: {...state.template, isLoading: true}};
+    case 'TEMPLATE_DELETED':
+      return {...state, template: {...state.template, isLoading: false, templateId: null}};
     case 'SUBMIT':
-      const query = `
-        mutation addTransaction($input: TransactionInput!) {
+      query = `
+        mutation($input: TransactionInput!) {
           addTransaction(input: $input) {
             ok
           }
@@ -154,11 +246,12 @@ function reducer(state, action) {
   }
 }
 
-function AddTransactionModal({onClose}) {
+function AddTransactionModal({onClose, template}) {
   const classes = useStyles();
   const {loading: categoriesLoading, data: categoriesData} = useCategories();
   const {loading: accountsLoading, data: accountsData, reset: accountsReset} = useAccounts();
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const {reset: transactionTemplatesReset} = useTransactionTemplates();
+  const [state, dispatch] = useReducer(reducer, template, initialState);
 
   const handleChange = (event) => {
     dispatch({type: 'CHANGE', name: event.target.name, value: event.target.value});
@@ -178,6 +271,10 @@ function AddTransactionModal({onClose}) {
 
   const addItem = () => dispatch({type: 'ADD_ITEM'});
   const delItem = (index) => dispatch({type: 'DEL_ITEM', index});
+  const openTemplateNameDialog = () => dispatch({type: 'OPEN_TEMPLATE_NAME'});
+  const closeTemplateNameDialog = () => dispatch({type: 'CLOSE_TEMPLATE_NAME'});
+  const saveAsTemplate = () => dispatch({type: 'SAVE_TEMPLATE', transactionTemplatesReset, dispatch});
+  const deleteTemplate = () => dispatch({type: 'DELETE_TEMPLATE', transactionTemplatesReset, dispatch});
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -248,7 +345,7 @@ function AddTransactionModal({onClose}) {
                       label={(!state.values.items[i].account ||
                         accountsData.find(a => a.id === state.values.items[i].account).type !== 3) ?
                         (state.values.items[i].inflow ? '收入' : '支出') :
-                        (state.values.items[i].inflow ? '权益增加' : '权益减少')} />
+                        (state.values.items[i].inflow ? '增加' : '减少')} />
                   </Grid>
                   <Grid item xs={3}>
                     <TextField label="金额" name={`${i}.amount`} variant="outlined" margin="dense" fullWidth
@@ -295,6 +392,29 @@ function AddTransactionModal({onClose}) {
             <div className={classes.leftAction}>
               <IconButton color="primary" onClick={addItem}><AddBoxIcon /></IconButton>
             </div>
+            <div className={classes.buttonWrapper}>
+              {state.template.templateId ? (
+                <Button variant="contained" startIcon={<BackspaceIcon />} onClick={deleteTemplate}
+                        disabled={state.template.isLoading}>删除模板</Button>
+              ) : (
+                <Button variant="contained" startIcon={<BookmarkIcon />} onClick={openTemplateNameDialog}
+                        disabled={state.template.isLoading}>存为模板</Button>
+              )}
+              {state.template.isLoading && <CircularProgress size={24} className={classes.buttonProgress} />}
+            </div>
+            {state.template.nameDialogOpen && (
+              <Dialog onClose={closeTemplateNameDialog} open>
+                <DialogTitle>存为模板</DialogTitle>
+                <DialogContent>
+                  <TextField label="模板名称" name="templateName" variant="outlined" margin="dense" fullWidth
+                             value={state.values.templateName || ''} onChange={handleChange} />
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={closeTemplateNameDialog}>取消</Button>
+                  <Button color="primary" onClick={saveAsTemplate}>确认</Button>
+                </DialogActions>
+              </Dialog>
+            )}
             <Button variant="contained" startIcon={<CloseIcon />} onClick={onClose}>取消</Button>
             <div className={classes.buttonWrapper}>
               <Button variant="contained" startIcon={<CheckIcon />} color="primary" type="submit"
@@ -309,7 +429,8 @@ function AddTransactionModal({onClose}) {
 }
 
 AddTransactionModal.propTypes = {
-  onClose: PropTypes.func.isRequired
+  onClose: PropTypes.func.isRequired,
+  template: PropTypes.object,
 };
 
 export default AddTransactionModal;
