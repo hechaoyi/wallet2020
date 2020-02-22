@@ -99,9 +99,13 @@ class Analysis:
                 break
             self.setup_mask(candidates)
 
-        candidates = {s for _, r in ratios for s in r}
         if additions:
-            candidates |= set(additions)
+            candidates = set(additions)
+            while candidates:
+                self.setup_mask(candidates)
+                try_and_try_again()
+
+        candidates = {s for _, r in ratios for s in r}
         while candidates:
             self.setup_mask(candidates)
             try_and_try_again()
@@ -117,17 +121,15 @@ class Analysis:
     def _combine_groups(ratios, group_ratios, previous):
         def dfs(index, skipped, covered, selected):
             if len(selected) == len(group_ratios):
-                if skipped <= results[covered][0]:
-                    if skipped < results[covered][0]:
-                        results[covered] = (skipped, [])
-                        for i in range(covered):
-                            if results[i][0] >= skipped:
-                                results[i] = (skipped - 1, [])
+                covered_set = frozenset({s for rt in selected for s in rt} & previous)
+                if skipped <= results[covered][covered_set][0]:
+                    if skipped < results[covered][covered_set][0]:
+                        results[covered][covered_set] = (skipped, [])
                     choice = {s: round(rt[s] * gr)
                               for rt, gr in zip(selected, group_ratios) for s in rt}
-                    results[covered][1].append([choice, previous & choice.keys()])
+                    results[covered][covered_set][1].append([choice, previous & choice.keys()])
                 return
-            if index >= len(ratios) or skipped > results[-1][0]:
+            if index >= len(ratios) or skipped > max((e[0] for e in results[-1].values()), default=float('+inf')):
                 return
             ratio = ratios[index]
             if len(ratio) > 1 and all(s not in rt for s in ratio for rt in selected):
@@ -136,9 +138,16 @@ class Analysis:
             else:
                 dfs(index + 1, skipped, covered, selected)
 
-        results = [(float('+inf'), []) for _ in range(len(previous) + 1)]
+        results = [defaultdict(lambda: (float('+inf'), [])) for _ in range(len(previous) + 1)]
         dfs(0, 0, 0, [])
-        return [(i, *r) for i, r in enumerate(results) if r[1]]
+        for i in range(1, len(previous) + 1):
+            for covered_set in results[i]:
+                skipped = results[i][covered_set][0]
+                for j in range(i):
+                    for cs in results[j]:
+                        if not (cs - covered_set) and results[j][cs][0] >= skipped:
+                            del results[j][cs]
+        return [(i, *r) for i, rs in enumerate(results) for r in rs.values() if r[1]]
 
     @classmethod
     def from_securities(cls, data_points, period=5, additions=None, **kwargs):
