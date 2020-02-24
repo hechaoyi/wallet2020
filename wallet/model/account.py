@@ -75,8 +75,8 @@ class AccountQuery(BaseQuery):
             db.func.sum(db.case([(Entry.currency == Currency.RMB, Entry.amount)])).label('rmb'),
         ).filter_by(active=True).group_by(Entry.account_id).subquery('balance')
         return self.options(
-            db.with_expression(Account.balance_usd, db.func.coalesce(balance.c.usd, 0)),
-            db.with_expression(Account.balance_rmb, db.func.coalesce(balance.c.rmb, 0)),
+            db.with_expression(Account.balance_usd, db.func.round(db.func.coalesce(balance.c.usd, 0), 2)),
+            db.with_expression(Account.balance_rmb, db.func.round(db.func.coalesce(balance.c.rmb, 0), 2)),
         ).outerjoin(balance, Account.id == balance.c.account_id)
 
     def order_by_entry_count(self):
