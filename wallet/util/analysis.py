@@ -9,7 +9,8 @@ from pandas_datareader import DataReader
 
 from wallet.util.m1 import screen_funds, screen_securities
 
-RISK_FREE_RATE_PER_DAY = 2 / 252
+# RISK_FREE_RATE_PER_DAY = 2 / 252
+RISK_FREE_RATE_PER_DAY = -30 / 50
 
 
 class Analysis:
@@ -34,12 +35,12 @@ class Analysis:
             self.data = self.origin_data
             self.origin_data = None
 
-    def screen(self, std_skew=True):
+    def screen(self):
         self.drop_mask()
         stat = _moving_average_statistics(self.data, self.period)
-        stat = stat[(stat['shrp'] > 0) & (stat['yield'] > 0) & (stat['count'] == stat['count'].max())]
-        if std_skew:
-            stat = stat[(stat['std'] > .1) & (abs(stat['skew']) < 1)]
+        stat = stat[stat['count'] == stat['count'].max()]
+        # stat = stat[(stat['shrp'] > 0) & (stat['yield'] > 0)]
+        # stat = stat[(stat['std'] > .1) & (abs(stat['skew']) < 1)]
         self.setup_mask(stat.index)
         return stat
 
@@ -144,9 +145,12 @@ class Analysis:
             for covered_set in results[i]:
                 skipped = results[i][covered_set][0]
                 for j in range(i):
+                    to_be_deleted = []
                     for cs in results[j]:
                         if not (cs - covered_set) and results[j][cs][0] >= skipped:
-                            del results[j][cs]
+                            to_be_deleted.append(cs)
+                    for tbd in to_be_deleted:
+                        del results[j][tbd]
         return [(i, *r) for i, rs in enumerate(results) for r in rs.values() if r[1]]
 
     @classmethod

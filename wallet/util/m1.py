@@ -6,28 +6,33 @@ URL = 'https://lens.m1finance.com/graphql'
 
 def get_accounts():
     query = '''
-        mutation ($username: String!, $password: String!) {
-          authenticate(input: {username: $username, password: $password}) {
-            viewer {
-              accounts {
-                edges {
-                  node {
-                    name
-                    rootPortfolioSlice {
-                      performance(period: ONE_DAY) {
-                        startValue {
-                          date
-                          value
+        mutation ($token: String!) {
+          reauthenticate(input: {refreshToken: $token}) {
+            didSucceed
+            error
+            outcome {
+              refreshToken
+              viewer {
+                accounts {
+                  edges {
+                    node {
+                      name
+                      rootPortfolioSlice {
+                        performance(period: ONE_DAY) {
+                          startValue {
+                            date
+                            value
+                          }
+                          endValue {
+                            date
+                            value
+                          }
+                          moneyWeightedRateOfReturn
+                          totalGain
+                          capitalGain
+                          earnedDividends
+                          netCashFlow
                         }
-                        endValue {
-                          date
-                          value
-                        }
-                        moneyWeightedRateOfReturn
-                        totalGain
-                        capitalGain
-                        earnedDividends
-                        netCashFlow
                       }
                     }
                   }
@@ -37,13 +42,13 @@ def get_accounts():
           }
         }
     '''
-    variables = {
-        'username': current_app.config['M1_USERNAME'],
-        'password': current_app.config['M1_PASSWORD'],
-    }
+    variables = {'token': current_app.config['M1_TOKEN']}
     json = post(URL, json={'query': query, 'variables': variables}).json()
+    if not json['data']['reauthenticate']['didSucceed']:
+        raise ValueError(json['data']['reauthenticate']['error'] or 'Failed to load M1 accounts')
+    # token = json['data']['reauthenticate']['outcome']['refreshToken']
     return {edge['node']['name']: edge['node']['rootPortfolioSlice']['performance']
-            for edge in json['data']['authenticate']['viewer']['accounts']['edges']}
+            for edge in json['data']['reauthenticate']['outcome']['viewer']['accounts']['edges']}
 
 
 def screen_securities(min_cap=None, min_pe=None, max_pe=None):

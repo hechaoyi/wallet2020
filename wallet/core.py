@@ -33,8 +33,7 @@ def _init_configurations(app):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
     for key in [
-        'M1_USERNAME', 'M1_PASSWORD',
-        'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
+        'M1_TOKEN', 'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
         'PLIVO_ID', 'PLIVO_TKN', 'PLIVO_SRC', 'PLIVO_DST',
     ]:
         app.config[key] = environ.get(key, '')
