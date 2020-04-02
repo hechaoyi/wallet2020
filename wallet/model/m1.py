@@ -36,14 +36,14 @@ class M1Portfolio(db.Model):
         if previous:
             assert self.name == previous.name
             if (fix_start_value and self.start_value != previous.value
-                    and round(abs(self.start_value - previous.value) / previous.value, 4) <= .0003):
+                    and round(abs(self.start_value - previous.value) / previous.value, 4) <= .002):
                 diff = round(self.start_value - previous.value, 2)
                 current_app.logger.info(f'fixed start value, capital gain, gain by {diff}')
                 self.start_value = previous.value
                 self.capital_gain = round(self.capital_gain + diff, 2)
                 self.gain = round(self.gain + diff, 2)
                 expected_rate = round(self.gain / (self.start_value + self.net_cash_flow) * 100, 2)
-                if round(abs(self.rate - expected_rate), 2) <= .03:
+                if round(abs(self.rate - expected_rate), 2) <= .2:
                     self.rate = expected_rate
             assert self.start_value == previous.value, \
                 f'start value not matched {self.start_value}, expected {previous.value}'

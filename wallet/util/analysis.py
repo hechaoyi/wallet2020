@@ -10,7 +10,7 @@ from pandas_datareader import DataReader
 from wallet.util.m1 import screen_funds, screen_securities
 
 # RISK_FREE_RATE_PER_DAY = 2 / 252
-RISK_FREE_RATE_PER_DAY = -30 / 50
+RISK_FREE_RATE_PER_DAY = -20 / 21
 
 
 class Analysis:
