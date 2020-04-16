@@ -35,6 +35,10 @@ def _init_configurations(app):
     for key in [
         'M1_TOKEN', 'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
         'PLIVO_ID', 'PLIVO_TKN', 'PLIVO_SRC', 'PLIVO_DST',
+        'GOOGLE_DRIVE_REFRESH_TOKEN',
+        'GOOGLE_DRIVE_CLIENT_ID',
+        'GOOGLE_DRIVE_CLIENT_SECRET',
+        'GOOGLE_DRIVE_FOLDER_ID',
     ]:
         app.config[key] = environ.get(key, '')
     app.web = 'gunicorn' in environ.get('SERVER_SOFTWARE', '')
@@ -71,6 +75,7 @@ def _init_models(app):
     from wallet.model.enums import Currency, Timezone
     from wallet.model.m1 import M1Portfolio
     from wallet.util.swapsy import init_app as swapsy_init_app, exchange_rate
+    from wallet.util.google_drive import init_app as google_drive_init_app
     models = [
         User, Account, Category, Transaction, Entry,
         Currency, Timezone, AccountType,
@@ -78,6 +83,7 @@ def _init_models(app):
     ]
     [m.init_app(app) for m in models if hasattr(m, 'init_app')]
     swapsy_init_app(app)
+    google_drive_init_app(app)
     try:
         from pandas_datareader import DataReader
         from wallet.util.analysis import Analysis
