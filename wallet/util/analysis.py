@@ -7,10 +7,10 @@ from numpy import ones
 from pandas import DataFrame
 from pandas_datareader import DataReader
 
-from wallet.util.m1 import screen_funds, screen_securities
+from wallet.util.m1 import get_hedge_fund_replication_securities, screen_funds, screen_securities
 
 # RISK_FREE_RATE_PER_DAY = 2 / 252
-RISK_FREE_RATE_PER_DAY = -20 / 21
+RISK_FREE_RATE_PER_DAY = -10 / 21
 
 
 class Analysis:
@@ -36,7 +36,7 @@ class Analysis:
             self.origin_data = None
 
     def screen(self):
-        self.drop_mask()
+        # self.drop_mask()
         stat = _moving_average_statistics(self.data, self.period)
         stat = stat[stat['count'] == stat['count'].max()]
         # stat = stat[(stat['shrp'] > 0) & (stat['yield'] > 0)]
@@ -53,8 +53,12 @@ class Analysis:
             data['Portfolio'] = sum(data[st] * sh for st, sh in portfolio.items())
             data['Portfolio'] = data['Portfolio'] * (100 / data['Portfolio'][start])
             if drop_components:
-                for st in portfolio:
-                    del data[st]
+                if isinstance(drop_components, list):
+                    for st in drop_components:
+                        del data[st]
+                else:
+                    for st in portfolio:
+                        del data[st]
         frame = DataFrame(data)
         frame.plot(figsize=(15, 5), grid=1)
         return _moving_average_statistics(frame, self.period)
@@ -163,6 +167,22 @@ class Analysis:
     @classmethod
     def from_funds(cls, data_points, period=5, additions=None, *, categories, **kwargs):
         symbols = reduce(concat, (screen_funds(*c.split(','), **kwargs) for c in categories))
+        if additions:
+            symbols += additions
+        return cls(symbols, data_points, period)
+
+    @classmethod
+    def from_hedge_funds(cls, data_points, period=5, additions=None, *, categories, **kwargs):
+        symbols = []
+        for category, securities in get_hedge_fund_replication_securities(**kwargs).items():
+            print(f'{category} ({len(securities)} securities)')
+            if category in categories:
+                symbols.extend(securities)
+                for symbol, security in securities.items():
+                    cap = f'{security.cap:.1f}B' if security.cap else ''
+                    pe = f'{security.pe}PE' if security.pe else ''
+                    print(f'  [{symbol.ljust(5)}] {security.name[:16].ljust(16)}:\t'
+                          f'{cap.ljust(8)} {pe.ljust(8)} {",".join(security.funds)}')
         if additions:
             symbols += additions
         return cls(symbols, data_points, period)

@@ -1,3 +1,5 @@
+from collections import defaultdict, namedtuple
+
 from flask import current_app
 from requests import post
 
@@ -114,3 +116,49 @@ def screen_funds(*category, min_cap=1, max_exp=1):
     json = post(URL, json={'query': query, 'variables': variables}).json()
     return [n['node']['symbol'].replace('.', '-')
             for n in json['data']['viewer']['screenFunds']['edges']]
+
+
+def get_hedge_fund_replication_securities(max_cap=None, min_cap=None):
+    query = '''
+        {
+          viewer {
+            screenSystemPies(filterCategory: ["HEDGE_FUND_REPLICATION"]) {
+              edges {
+                node {
+                  name
+                  slices {
+                    to {
+                      ... on Security {
+                        symbol
+                        name
+                        category
+                        fundamentals {
+                          marketCap
+                          peRatio
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+    '''
+    json = post(URL, json={'query': query}).json()
+    Security = namedtuple('Security', ['name', 'cap', 'pe', 'funds'])
+    dd = defaultdict(dict)  # {category: {symbol: Security}}
+    for n1 in json['data']['viewer']['screenSystemPies']['edges']:
+        fund = n1['node']['name']
+        for n2 in n1['node']['slices']:
+            cat = n2['to']['category']
+            if not cat:
+                continue
+            cap = (n2['to']['fundamentals']['marketCap'] or 0) / 1e9
+            if (cap and max_cap and cap > max_cap) or (cap and min_cap and cap < min_cap):
+                continue
+            pe = int(n2['to']['fundamentals']['peRatio'] or 0)
+            dd[cat[0]].setdefault(n2['to']['symbol'], Security(
+                n2['to']['name'], cap, pe, []
+            )).funds.append(fund)
+    return dd
