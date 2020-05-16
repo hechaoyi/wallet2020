@@ -3,24 +3,25 @@ from datetime import date, timedelta
 from functools import reduce
 from operator import concat
 
+import seaborn
 from numpy import ones
 from pandas import DataFrame
 from pandas_datareader import DataReader
 
 from wallet.util.m1 import get_hedge_fund_replication_securities, screen_funds, screen_securities
 
-# RISK_FREE_RATE_PER_DAY = 2 / 252
-RISK_FREE_RATE_PER_DAY = -10 / 21
+seaborn.set(rc={'figure.figsize': (15, 5)})
 
 
 class Analysis:
-    def __init__(self, symbols, data_points, period):
+    def __init__(self, symbols, data_points, period, risk_free_rate_per_year=2):
         data_points += period
         start = date.today() - timedelta(days=data_points * 1.5)
         start = DataReader('SPY', 'yahoo', start).index[-data_points]
         self.data = DataReader(symbols, 'yahoo', start)['Adj Close']
         self.period = period
         self.origin_data = None
+        self.risk_free_rate_per_day = risk_free_rate_per_year / 252
 
     def __str__(self):
         return f'from {self.data.index[0].date()} to {self.data.index[-1].date()} - {len(self.data.columns)} symbols'
@@ -37,21 +38,45 @@ class Analysis:
 
     def screen(self):
         # self.drop_mask()
-        stat = _moving_average_statistics(self.data, self.period)
+        stat = _moving_average_statistics(self.data, self.period, self.risk_free_rate_per_day)
         stat = stat[stat['count'] == stat['count'].max()]
         # stat = stat[(stat['shrp'] > 0) & (stat['yield'] > 0)]
         # stat = stat[(stat['std'] > .1) & (abs(stat['skew']) < 1)]
         self.setup_mask(stat.index)
         return stat
 
-    def graph(self, portfolio=None, drop_components=False):
-        start = self.data.index[0]
+    def graph(self, portfolio=None, drop_components=False, truncate=0,
+              rebalance_interval=10, rebalance_threshold=2):
         if portfolio:
             self.setup_mask(portfolio)
+            total_weight = sum(portfolio.values())
+            if total_weight > 0:
+                portfolio = {st: round(sh / total_weight, 3) for st, sh in portfolio.items()}
+        if truncate > 0:
+            self.data = self.data.truncate(self.data.index[0 - truncate - self.period])
+        start = self.data.index[0]
         data = {col: self.data[col] * (100 / self.data[col][start]) for col in self.data.columns}
         if portfolio:
             data['Portfolio'] = sum(data[st] * sh for st, sh in portfolio.items())
-            data['Portfolio'] = data['Portfolio'] * (100 / data['Portfolio'][start])
+            if total_weight <= 0:
+                data['Portfolio'] += 100
+
+            if rebalance_interval > 0:
+                data['Portfolio-RB'] = data['Portfolio'].copy()
+                last_rebalance, shares = 1 - rebalance_interval, dict(portfolio)
+                for i in range(1, len(self.data.index)):
+                    idx = self.data.index[i]
+                    data['Portfolio-RB'][idx] = sum(data[st][idx] * sh for st, sh in shares.items())
+                    if i - last_rebalance < rebalance_interval:
+                        continue
+                    new_shares = {st: data['Portfolio-RB'][idx] * sh / data[st][idx] for st, sh in portfolio.items()}
+                    delta = sum(abs(sh - shares[st]) for st, sh in new_shares.items()) * 100 / 2
+                    if delta >= rebalance_threshold:
+                        print(f'{idx.date()} rebalance: '
+                              f'buy {",".join([st for st, sh in new_shares.items() if sh > shares[st]])}, '
+                              f'sell {",".join([st for st, sh in new_shares.items() if sh < shares[st]])}')
+                        last_rebalance, shares = i, new_shares
+
             if drop_components:
                 if isinstance(drop_components, list):
                     for st in drop_components:
@@ -60,16 +85,16 @@ class Analysis:
                     for st in portfolio:
                         del data[st]
         frame = DataFrame(data)
-        frame.plot(figsize=(15, 5), grid=1)
-        return _moving_average_statistics(frame, self.period)
+        seaborn.lineplot(data=frame, dashes=False)
+        return _moving_average_statistics(frame, self.period, self.risk_free_rate_per_day)
 
-    def optimize(self, min_percent=.2, max_count=5, amplifier=0):
+    def optimize(self, min_percent=.2, max_count=5, sharpe=True):
         data = self.data.rolling(self.period).mean().pct_change() * 100
         corr = data.corr()
         candidates = set(self.data.columns)
         similarity = defaultdict(set)
         while len(candidates) > 1:
-            ratio, shrp = _optimize(data, amplifier)
+            ratio, shrp = _optimize(data, self.risk_free_rate_per_day, sharpe)
             symbol = min(ratio, key=lambda s: ratio[s])
             if ratio[symbol] >= min_percent and len(ratio) <= max_count:
                 return shrp, ratio, {s: similarity[s] for s in ratio}
@@ -77,19 +102,18 @@ class Analysis:
             similarity[corr.loc[symbol, candidates].idxmax()].add(symbol)
             data = data[candidates]
         candidate = next(iter(candidates))
-        shrp = (data[candidate].mean() - RISK_FREE_RATE_PER_DAY * (1 + amplifier)) / data[candidate].std()
+        shrp = (data[candidate].mean() - self.risk_free_rate_per_day) / data[candidate].std()
         return round(shrp, 4), {candidate: 1}, {candidate: similarity[candidate]}
 
-    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, amplifier=0,
-                           additions=None):
+    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, additions=None, sharpe=True):
         def try_and_try_again():
-            shrp, ratio, similarity = self.optimize(min_percent, max_count, amplifier)
+            shrp, ratio, similarity = self.optimize(min_percent, max_count, sharpe)
             if (shrp, ratio) not in ratios:
                 ratios.append((shrp, ratio))
             for symbol in ratio:
                 if similarity[symbol]:
                     self.setup_mask(ratio.keys() - {symbol} | similarity[symbol])
-                    s, r, _ = self.optimize(min_percent, max_count, amplifier)
+                    s, r, _ = self.optimize(min_percent, max_count, sharpe)
                     if (s, r) not in ratios:
                         ratios.append((s, r))
                 candidates.remove(symbol)
@@ -176,7 +200,7 @@ class Analysis:
         symbols = []
         for category, securities in get_hedge_fund_replication_securities(**kwargs).items():
             print(f'{category} ({len(securities)} securities)')
-            if category in categories:
+            if not categories or category in categories:
                 symbols.extend(securities)
                 for symbol, security in securities.items():
                     cap = f'{security.cap:.1f}B' if security.cap else ''
@@ -184,14 +208,17 @@ class Analysis:
                     print(f'  [{symbol.ljust(5)}] {security.name[:16].ljust(16)}:\t'
                           f'{cap.ljust(8)} {pe.ljust(8)} {",".join(security.funds)}')
         if additions:
-            symbols += additions
+            additions = set(additions) - set(symbols)
+            if additions:
+                print(f'Additions: {additions}')
+                symbols += additions
         return cls(symbols, data_points, period)
 
 
-def _moving_average_statistics(frame, period):
+def _moving_average_statistics(frame, period, risk_free_rate_per_day=.008):
     data = frame.rolling(period).mean().pct_change() * 100
-    stat = data.describe().T
-    stat['shrp'] = (stat['mean'] - RISK_FREE_RATE_PER_DAY) / stat['std']
+    stat = data.describe(percentiles=[.05, .5, .95]).T
+    stat['shrp'] = (stat['mean'] - risk_free_rate_per_day) / stat['std']
     stat['yield'] = frame.T[frame.index[-1]] / frame.T[frame.index[0]] * 100 - 100
     stat['down'] = frame.apply(_max_drawdown)
     stat['skew'] = data.skew()
@@ -210,12 +237,12 @@ def _max_drawdown(series):
     return result
 
 
-def _optimize(data, amplifier=0):
+def _optimize(data, risk_free_rate_per_day, sharpe):
     def calculate(target):
         weights = ((B * one.T.dot(cov_inv) - A * mean.T.dot(cov_inv)) / (B * C - A * A) +
                    (C * mean.T.dot(cov_inv) - A * one.T.dot(cov_inv)) / (B * C - A * A) * target)
         m, s = weights.T.dot(mean), weights.T.dot(cov).dot(weights) ** .5
-        r = (m - RISK_FREE_RATE_PER_DAY * (1 + amplifier)) / s
+        r = ((m - risk_free_rate_per_day) / s) if sharpe else (1 / s)
         return {k: round(v, 4) for k, v in weights.items()}, round(r, 4)
 
     def attempt(guess):

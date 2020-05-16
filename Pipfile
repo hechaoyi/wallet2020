@@ -8,6 +8,7 @@ python-dotenv = "*"
 pytest = "*"
 pandas-datareader = "*"
 scipy = "*"
+seaborn = "*"
 
 [packages]
 flask-migrate = "*"
