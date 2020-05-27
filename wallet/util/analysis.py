@@ -49,19 +49,17 @@ class Analysis:
               rebalance_interval=10, rebalance_threshold=2):
         if portfolio:
             self.setup_mask(portfolio)
-            total_weight = sum(portfolio.values())
-            if total_weight > 0:
-                portfolio = {st: round(sh / total_weight, 3) for st, sh in portfolio.items()}
+            if all(w > 0 for w in portfolio.values()):
+                portfolio = {st: round(sh / sum(portfolio.values()), 3) for st, sh in portfolio.items()}
         if truncate > 0:
             self.data = self.data.truncate(self.data.index[0 - truncate - self.period])
         start = self.data.index[0]
         data = {col: self.data[col] * (100 / self.data[col][start]) for col in self.data.columns}
         if portfolio:
             data['Portfolio'] = sum(data[st] * sh for st, sh in portfolio.items())
-            if total_weight <= 0:
-                data['Portfolio'] += 100
-
-            if rebalance_interval > 0:
+            if any(w < 0 for w in portfolio.values()):
+                data['Portfolio'] += 100 * (1 - sum(portfolio.values()))
+            elif rebalance_interval > 0:
                 data['Portfolio-RB'] = data['Portfolio'].copy()
                 last_rebalance, shares = 1 - rebalance_interval, dict(portfolio)
                 for i in range(1, len(self.data.index)):
@@ -88,16 +86,21 @@ class Analysis:
         seaborn.lineplot(data=frame, dashes=False)
         return _moving_average_statistics(frame, self.period, self.risk_free_rate_per_day)
 
-    def optimize(self, min_percent=.2, max_count=5, sharpe=True):
+    def optimize(self, min_percent=.2, max_count=5, sharpe=True, allow_short=False):
         data = self.data.rolling(self.period).mean().pct_change() * 100
         corr = data.corr()
         candidates = set(self.data.columns)
         similarity = defaultdict(set)
         while len(candidates) > 1:
-            ratio, shrp = _optimize(data, self.risk_free_rate_per_day, sharpe)
-            symbol = min(ratio, key=lambda s: ratio[s])
-            if ratio[symbol] >= min_percent and len(ratio) <= max_count:
-                return shrp, ratio, {s: similarity[s] for s in ratio}
+            ratio, shrp = _optimize(data, self.risk_free_rate_per_day, sharpe, allow_short)
+            if allow_short:
+                symbol = min(ratio, key=lambda s: abs(ratio[s]))
+                if abs(ratio[symbol]) >= min_percent and len(ratio) <= max_count:
+                    return shrp, ratio, {s: similarity[s] for s in ratio}
+            else:
+                symbol = min(ratio, key=lambda s: ratio[s])
+                if ratio[symbol] >= min_percent and len(ratio) <= max_count:
+                    return shrp, ratio, {s: similarity[s] for s in ratio}
             candidates.remove(symbol)
             similarity[corr.loc[symbol, candidates].idxmax()].add(symbol)
             data = data[candidates]
@@ -105,15 +108,16 @@ class Analysis:
         shrp = (data[candidate].mean() - self.risk_free_rate_per_day) / data[candidate].std()
         return round(shrp, 4), {candidate: 1}, {candidate: similarity[candidate]}
 
-    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, additions=None, sharpe=True):
+    def optimize_iteration(self, group_ratios, min_percent=.2, max_count=5, additions=None,
+                           sharpe=True, allow_short=False):
         def try_and_try_again():
-            shrp, ratio, similarity = self.optimize(min_percent, max_count, sharpe)
+            shrp, ratio, similarity = self.optimize(min_percent, max_count, sharpe, allow_short)
             if (shrp, ratio) not in ratios:
                 ratios.append((shrp, ratio))
             for symbol in ratio:
                 if similarity[symbol]:
                     self.setup_mask(ratio.keys() - {symbol} | similarity[symbol])
-                    s, r, _ = self.optimize(min_percent, max_count, sharpe)
+                    s, r, _ = self.optimize(min_percent, max_count, sharpe, allow_short)
                     if (s, r) not in ratios:
                         ratios.append((s, r))
                 candidates.remove(symbol)
@@ -237,16 +241,18 @@ def _max_drawdown(series):
     return result
 
 
-def _optimize(data, risk_free_rate_per_day, sharpe):
+def _optimize(data, risk_free_rate_per_day, sharpe, allow_short):
     def calculate(target):
         weights = ((B * one.T.dot(cov_inv) - A * mean.T.dot(cov_inv)) / (B * C - A * A) +
                    (C * mean.T.dot(cov_inv) - A * one.T.dot(cov_inv)) / (B * C - A * A) * target)
+        if allow_short:
+            weights /= sum(w for w in weights if w > 0)
         m, s = weights.T.dot(mean), weights.T.dot(cov).dot(weights) ** .5
         r = ((m - risk_free_rate_per_day) / s) if sharpe else (1 / s)
         return {k: round(v, 4) for k, v in weights.items()}, round(r, 4)
 
     def attempt(guess):
-        if guess < mean.min() or guess > mean.max():
+        if not allow_short and (guess < mean.min() or guess > mean.max()):
             return float('inf')
         _, r = calculate(guess)
         if r <= 0:
@@ -258,6 +264,9 @@ def _optimize(data, risk_free_rate_per_day, sharpe):
     mean, cov, one = data.mean(), data.cov(), ones(len(data.columns))
     cov_inv = DataFrame(linalg.pinv(cov.values), cov.columns, cov.index)
     A, B, C = one.T.dot(cov_inv).dot(mean), mean.T.dot(cov_inv).dot(mean), one.T.dot(cov_inv).dot(one)
-    res = minimize_scalar(attempt, bounds=(mean.min(), mean.max()), method='Bounded')
+    if allow_short:
+        res = minimize_scalar(attempt)
+    else:
+        res = minimize_scalar(attempt, bounds=(mean.min(), mean.max()), method='Bounded')
     assert res.success
     return calculate(res.x)
