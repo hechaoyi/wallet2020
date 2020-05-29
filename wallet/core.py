@@ -33,7 +33,7 @@ def _init_configurations(app):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
     for key in [
-        'M1_TOKEN', 'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
+        'M1_TOKEN', 'RH_TOKEN', 'SWAPSY_USERNAME', 'SWAPSY_PASSWORD',
         'PLIVO_ID', 'PLIVO_TKN', 'PLIVO_SRC', 'PLIVO_DST',
         'GOOGLE_DRIVE_REFRESH_TOKEN',
         'GOOGLE_DRIVE_CLIENT_ID',
@@ -76,6 +76,7 @@ def _init_models(app):
     from wallet.model.m1 import M1Portfolio
     from wallet.util.swapsy import init_app as swapsy_init_app, exchange_rate
     from wallet.util.google_drive import init_app as google_drive_init_app
+    from wallet.util.robinhood import init_app as robinhood_init_app
     models = [
         User, Account, Category, Transaction, Entry,
         Currency, Timezone, AccountType,
@@ -84,6 +85,7 @@ def _init_models(app):
     [m.init_app(app) for m in models if hasattr(m, 'init_app')]
     swapsy_init_app(app)
     google_drive_init_app(app)
+    robinhood_init_app(app)
     try:
         from pandas_datareader import DataReader
         from wallet.util.analysis import Analysis

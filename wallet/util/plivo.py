@@ -7,16 +7,18 @@ from requests.auth import HTTPBasicAuth
 
 
 def send(text):
-    post(f'https://api.plivo.com/v1/Account/{current_app.config["PLIVO_ID"]}/Message/',
-         auth=HTTPBasicAuth(
-             current_app.config['PLIVO_ID'],
-             current_app.config['PLIVO_TKN']
-         ),
-         data={
-             'src': current_app.config['PLIVO_SRC'],
-             'dst': current_app.config['PLIVO_DST'],
-             'text': text
-         })
+    resp = post(f'https://api.plivo.com/v1/Account/{current_app.config["PLIVO_ID"]}/Message/',
+                auth=HTTPBasicAuth(
+                    current_app.config['PLIVO_ID'],
+                    current_app.config['PLIVO_TKN']
+                ),
+                data={
+                    'src': current_app.config['PLIVO_SRC'],
+                    'dst': current_app.config['PLIVO_DST'],
+                    'text': text
+                })
+    if resp.status_code >= 300:
+        raise Exception(f'Failed to send plivo message. [{resp.status_code}]\n{resp.text}')
 
 
 def error_notifier(func):
