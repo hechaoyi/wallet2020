@@ -40,18 +40,21 @@ def get_summary(output=print, verbose=True):
     spy = sum(pos.shares for pos in positions['SPY'].positions) * positions['SPY'].price
     ratio = round(spy / qqq, 2)
     output(f'QQQ:SPY  1.0:{ratio}')
-    target = -0.8
-    if ratio < target:  # too much SPY
+    target = -0.6
+    if ratio < target - .1:  # too much SPY
         output(f'Long QQQ {round((spy / target - qqq) / positions["QQQ"].price)} shares')
-    elif ratio > target:  # too much QQQ
+    elif ratio > target + .1:  # too much QQQ
         output(f'Short SPY {round((qqq * target - spy) / positions["SPY"].price)} shares')
 
     output()
     today = datetime.today()
     expiry_date = (today + timedelta(days=21 + (4 - today.weekday()) % 7)).strftime('%Y-%m-%d')
+    expiry_date = {
+        '2020-07-03': '2020-07-02',
+    }.get(expiry_date, expiry_date)
     output(f'QQQ candidates: [stock price: {positions["QQQ"].price}, expiry date: {expiry_date}]')
     spreads = find_option_spreads(req, 'short_put',
-                                  positions['QQQ'].chain, expiry_date, positions['QQQ'].price, .48, .64)
+                                  positions['QQQ'].chain, expiry_date, positions['QQQ'].price, .56, .72)
     if not verbose:
         spreads = spreads[:2]
     for spread in spreads:
@@ -59,7 +62,7 @@ def get_summary(output=print, verbose=True):
                f' Maximum {spread.maximum}, Health {spread.health}%]')
     output(f'SPY candidates: [stock price: {positions["SPY"].price}, expiry date: {expiry_date}]')
     spreads = find_option_spreads(req, 'short_call',
-                                  positions['SPY'].chain, expiry_date, positions['SPY'].price, .48, .64)
+                                  positions['SPY'].chain, expiry_date, positions['SPY'].price, .64, .80)
     if not verbose:
         spreads = spreads[:2]
     for spread in spreads:
@@ -127,10 +130,10 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
                      for option in _paginate(req, f'{HOST}/options/instruments/', params))
     i = bisect_left(options, (stock_price, ''))
     options = {
-        'long_call': lambda: options[max(0, i - 10):i][::-1],
-        'long_put': lambda: options[i:min(len(options), i + 10)],
-        'short_call': lambda: options[i:min(len(options), i + 10)],
-        'short_put': lambda: options[max(0, i - 10):i][::-1],
+        'long_call': lambda: options[max(0, i - 16):i][::-1],
+        'long_put': lambda: options[i:min(len(options), i + 16)],
+        'short_call': lambda: options[i:min(len(options), i + 16)],
+        'short_put': lambda: options[max(0, i - 16):i][::-1],
     }[strategy]()
     market_data = req.get(f'{HOST}/marketdata/options/',
                           params={'instruments': ','.join(option[1] for option in options)}).json()['results']
@@ -143,18 +146,19 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
     for i in range(len(options)):
         if {
             'long_call': lambda: options[i].delta < ratio1,
-            'long_put': lambda: options[i].delta > -ratio1,
+            'long_put': lambda: -options[i].delta < ratio1,
             'short_call': lambda: options[i].delta > 1 - ratio1,
-            'short_put': lambda: options[i].delta < ratio1 - 1,
+            'short_put': lambda: -options[i].delta > 1 - ratio1,
         }[strategy]():
             continue
         for j in range(i + 1, len(options)):
+            shares = round((options[j].delta - options[i].delta) * 100)
             price = round(options[j].mark_price - options[i].mark_price, 2)
             maximum = round(abs(options[j].strike_price - options[i].strike_price), 2)
             health = price / maximum
             if 'short' in strategy:
                 health = 1 + price / maximum
-            if health > ratio2:
+            if shares > 10 or shares < -10 or health > ratio2:
                 continue
             strike_prices = f'{options[j].strike_price}/{options[i].strike_price}'
             name = {
@@ -163,18 +167,19 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
                 'short_call': lambda: f'{strike_prices} Calls Credit Spread',
                 'short_put': lambda: f'{strike_prices} Puts Credit Spread',
             }[strategy]()
-            shares = round((options[j].delta - options[i].delta) * 100)
             spreads.append(Spread(name, shares, price, maximum, round(health * 100)))
     spreads.sort(key=lambda c: c.health)
     result = []
     for spread in spreads:
-        if not result or spread.maximum >= result[-1].maximum:
+        if not result or abs(spread.shares) > abs(result[-1].shares):
             result.append(spread)
     return result
 
 
 def _paginate(req, url, params=None):
     result = req.get(url, params=params).json()
+    if 'results' not in result:
+        raise Exception(f'Unexpected response: {result}')
     for item in result['results']:
         yield item
     while result['next']:

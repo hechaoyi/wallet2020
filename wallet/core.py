@@ -86,12 +86,6 @@ def _init_models(app):
     swapsy_init_app(app)
     google_drive_init_app(app)
     robinhood_init_app(app)
-    try:
-        from pandas_datareader import DataReader
-        from wallet.util.analysis import Analysis
-        models += [DataReader, Analysis]
-    except ImportError:
-        pass
     return models
 
 
