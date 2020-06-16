@@ -46,7 +46,7 @@ class Analysis:
         return stat
 
     def graph(self, portfolio=None, drop_components=False, truncate=0,
-              rebalance_interval=10, rebalance_threshold=2):
+              rebalance_interval=15, rebalance_threshold=3):
         if portfolio:
             self.setup_mask(portfolio)
             if all(w > 0 for w in portfolio.values()):

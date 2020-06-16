@@ -83,6 +83,8 @@ class M1Portfolio(db.Model):
         for name, performance in m1.items():
             if not performance or (performance['startValue']['value'] == 0 and performance['endValue']['value'] == 0):
                 continue
+            start_date = tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()
+            assert start_date == today, f'start date not matched {start_date}, expected {today}'
             inst = cls.query.filter_by(name=name).order_by(cls.date.desc()).first()
             if inst and inst.date == today:
                 last = cls.query.filter_by(name=name).order_by(cls.date.desc()).offset(1).first()
@@ -99,13 +101,9 @@ class M1Portfolio(db.Model):
             inst.dividend_gain = performance['earnedDividends']
             inst.cost_basis = round(inst.net_cash_flow, -2) + (last.cost_basis if last else 0)
             current_app.logger.info(f'{name}: {inst}')
-            result.append((inst, last,
-                           tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()))
+            result.append((inst, last))
 
-        for inst, last, start_date in result:
-            if last:
-                assert start_date == last.date, \
-                    f'start date not matched {start_date}, expected {last.date}'
+        for inst, last in result:
             inst.inspect(last, fix_start_value=True)
 
     @classmethod
