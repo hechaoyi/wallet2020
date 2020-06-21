@@ -17,20 +17,14 @@ def init_app(app):
 
 
 def get_summary(output=print, verbose=True):
-    req = Session()
-    req.headers['Authorization'] = f'Bearer {current_app.config["RH_TOKEN"]}'
-    req.headers['User-Agent'] = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36'
-                                 ' (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36')
-    req.headers['Referer'] = 'https://robinhood.com/'
-    req.headers['Cache-Control'] = 'no-cache'
-    req.headers['Pragma'] = 'no-cache'
+    req = _init_request_session()
 
-    positions = get_option_positions(req)
+    positions = get_option_positions(req, ['AAPL', 'MSFT', 'FB', 'AMZN'])
     for item in positions.values():
         shares = sum(pos.shares for pos in item.positions)
         output(f'{item.symbol} '
                f'[Gain {sum(pos.gain for pos in item.positions)}, Theta {sum(pos.theta for pos in item.positions):.2f},'
-               f' Shares {shares}, Gamma {sum(pos.gamma for pos in item.positions):.2f},'
+               f' Shares {shares:.1f}, Gamma {sum(pos.gamma for pos in item.positions):.2f},'
                f' Price {item.price}, Value {shares * item.price:.0f}]:')
         if verbose:
             for pos in item.positions:
@@ -48,40 +42,51 @@ def get_summary(output=print, verbose=True):
             dd[pos.expiry][2] += abs(pos.shares) * item.price
     for expiry in sorted(dd):
         output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f}, Value: {dd[expiry][2]:.0f}')
-    qqq = sum(pos.shares for pos in positions['QQQ'].positions) * positions['QQQ'].price
-    spy = sum(pos.shares for pos in positions['SPY'].positions) * positions['SPY'].price
-    ratio = round(spy / qqq, 2)
-    output(f'QQQ:SPY  1.0:{ratio}')
-    target = -0.7
-    if ratio < target - .1:  # too much SPY
-        output(f'Long QQQ {(spy / target - qqq) / positions["QQQ"].price:.0f} shares')
-    elif ratio > target + .1:  # too much QQQ
-        output(f'Short SPY {(qqq * target - spy) / positions["SPY"].price:.0f} shares')
 
-    output()
+    target = -0.7
+    aapl = sum(pos.shares for pos in positions['AAPL'].positions) * positions['AAPL'].price
+    msft = sum(pos.shares for pos in positions['MSFT'].positions) * positions['MSFT'].price
+    fb = sum(pos.shares for pos in positions['FB'].positions) * positions['FB'].price
+    amzn = sum(pos.shares for pos in positions['AMZN'].positions) * positions['AMZN'].price
+    qqq = sum(pos.shares for pos in positions['QQQ'].positions) * positions['QQQ'].price
+    mafa = aapl + msft + fb + amzn + qqq
+    spy = sum(pos.shares for pos in positions['SPY'].positions) * positions['SPY'].price
+    output(f'AAPL:MSFT:FB:AMZN:QQQ:SPY    {aapl / mafa * 100:.0f}:{msft / mafa * 100:.0f}'
+           f':{fb / mafa * 100:.0f}:{amzn / mafa * 100:.0f}'
+           f':{qqq / mafa * 100:.0f}:{spy / mafa * 100:.0f}')
+    if spy / mafa > target + .05:  # too much MAFA
+        output(f'Short SPY {(mafa * target - spy) / positions["SPY"].price:.1f} shares')
+    elif spy / mafa < target - .05:  # too much SPY
+        if spy / target * .25 > aapl:
+            output(f'Long AAPL {(spy / target * .25 - aapl) / positions["AAPL"].price:.1f} shares')
+        if spy / target * .25 > msft:
+            output(f'Long MSFT {(spy / target * .25 - msft) / positions["MSFT"].price:.1f} shares')
+        if spy / target * .25 > fb:
+            output(f'Long FB {(spy / target * .25 - fb) / positions["FB"].price:.1f} shares')
+        if spy / target * .25 > amzn:
+            output(f'Long AMZN {(spy / target * .25 - amzn) / positions["AMZN"].price:.1f} shares')
+
     today = datetime.today()
     expiry_date = (today + timedelta(days=28 + (4 - today.weekday()) % 7)).strftime('%Y-%m-%d')
     expiry_date = {
         '2020-07-03': '2020-07-02',
     }.get(expiry_date, expiry_date)
-    output(f'QQQ candidates: [stock price: {positions["QQQ"].price}, expiry date: {expiry_date}]')
-    spreads = find_option_spreads(req, 'short_put',
-                                  positions['QQQ'].chain, expiry_date, positions['QQQ'].price, .56, .72)
-    if not verbose:
-        spreads = spreads[1:4]
-    for spread in spreads:
-        output(f' - {spread.name} [Shares {spread.shares}, Price {spread.price},'
-               f' Maximum {spread.maximum}, Health {spread.health}%,'
-               f' Gamma {spread.gamma}, Theta {spread.theta}]')
-    output(f'SPY candidates: [stock price: {positions["SPY"].price}, expiry date: {expiry_date}]')
-    spreads = find_option_spreads(req, 'short_call',
-                                  positions['SPY'].chain, expiry_date, positions['SPY'].price, .64, .80)
-    if not verbose:
-        spreads = spreads[1:4]
-    for spread in spreads:
-        output(f' - {spread.name} [Shares {spread.shares}, Price {spread.price},'
-               f' Maximum {spread.maximum}, Health {spread.health}%,'
-               f' Gamma {spread.gamma}, Theta {spread.theta}]')
+
+    def list_spreads(symbol, strategy, price, chain, ratio1, ratio2):
+        output(f'{symbol} candidates: [stock price: {price}, expiry date: {expiry_date}]')
+        spreads = find_option_spreads(req, strategy, chain, expiry_date, price, ratio1, ratio2)
+        if not verbose:
+            spreads = spreads[:2]
+        for spread in spreads:
+            output(f' - {spread.name} [Shares {spread.shares}, Price {spread.price}'
+                   f', Maximum {spread.maximum}, Health {spread.health}%')
+
+    output()
+    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, .72)
+    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, .72)
+    list_spreads('FB',   'short_put', positions['FB'].price,   positions['FB'].chain,   .56, .72)
+    list_spreads('AMZN', 'short_put', positions['AMZN'].price, positions['AMZN'].chain, .56, .60)
+    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, .64)
 
 
 def get_summary_with_notif():
@@ -94,7 +99,7 @@ def get_summary_with_notif():
     send(notification[0])
 
 
-def get_option_positions(req):
+def get_option_positions(req, additions):
     Position = namedtuple('Position', 'name gain shares health gamma theta expiry')
     SymbolPositions = namedtuple('SymbolPositions', 'symbol positions price chain')
     positions = {}  # symbol:SymbolPositions
@@ -125,12 +130,12 @@ def get_option_positions(req):
             data = market_data[i]
             if leg['position_type'] == 'long':
                 equity += round(float(data['mark_price']) * 100 * quantity)
-                shares += round(float(data['delta']) * 100 * quantity)
+                shares += float(data['delta']) * 100 * quantity
                 gamma += float(data['gamma']) * quantity * price  # the change of shares per 1%
                 theta += float(data['theta']) * 100 * quantity  # the change of equity per day
             else:
                 equity -= round(float(data['mark_price']) * 100 * quantity)
-                shares -= round(float(data['delta']) * 100 * quantity)
+                shares -= float(data['delta']) * 100 * quantity
                 gamma -= float(data['gamma']) * quantity * price  # the change of shares per 1%
                 theta -= float(data['theta']) * 100 * quantity  # the change of equity per day
         cost = round(float(position['average_open_price']) * quantity)  # always positive
@@ -139,8 +144,14 @@ def get_option_positions(req):
         if position['direction'] == 'credit':
             gain = equity + cost
             health = 1 + equity / maximum
-        positions[symbol].positions.append(Position(name, gain, shares,
+        positions[symbol].positions.append(Position(name, gain, round(shares, 1),
                                                     round(health * 100), round(gamma, 2), round(theta, 2), expiry))
+
+    for symbol in additions:
+        if symbol not in positions:
+            price = float(req.get(f'{HOST}/marketdata/quotes/{symbol}/').json()['last_trade_price'])
+            chain = req.get(f'{HOST}/instruments/', params={'symbol': symbol}).json()['results'][0]['tradable_chain_id']
+            positions[symbol] = SymbolPositions(symbol, [], price, chain)
 
     return positions
 
@@ -174,7 +185,7 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
         }[strategy]():
             continue
         for j in range(i + 1, len(options)):
-            shares = round((options[j].delta - options[i].delta) * 100)
+            shares = (options[j].delta - options[i].delta) * 100
             price = round(options[j].mark_price - options[i].mark_price, 2)
             maximum = round(abs(options[j].strike_price - options[i].strike_price), 2)
             gamma = round((options[j].gamma - options[i].gamma) * stock_price, 2)
@@ -191,7 +202,7 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
                 'short_call': lambda: f'{strike_prices} Calls Credit Spread',
                 'short_put': lambda: f'{strike_prices} Puts Credit Spread',
             }[strategy]()
-            spreads.append(Spread(name, shares, price, maximum, round(health * 100), gamma, theta))
+            spreads.append(Spread(name, round(shares, 1), price, maximum, round(health * 100), gamma, theta))
     spreads.sort(key=lambda c: c.health)
     result = []
     for spread in spreads:
@@ -200,15 +211,33 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
     return result
 
 
+def get_portfolio():
+    req = _init_request_session()
+    result = req.get(f'{HOST}/portfolios/').json()['results'][0]
+    Portfolio = namedtuple('Portfolio', 'value start_value')
+    return Portfolio(float(result['equity']), float(result['equity_previous_close']))
+
+
+def _init_request_session():
+    req = Session()
+    req.headers['Authorization'] = f'Bearer {current_app.config["RH_TOKEN"]}'
+    req.headers['User-Agent'] = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36'
+                                 ' (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36')
+    req.headers['Referer'] = 'https://robinhood.com/'
+    req.headers['Cache-Control'] = 'no-cache'
+    req.headers['Pragma'] = 'no-cache'
+    return req
+
+
 def _get_options_market_data(req, option_list):
     result = [[] for _ in range(len(option_list))]
-    for _ in range(10):
+    for _ in range(15):
         market_data = req.get(f'{HOST}/marketdata/options/',
                               params={'instruments': ','.join(option_list)}).json()['results']
         for i, data in enumerate(market_data):
             if data['delta'] is not None:
                 result[i].append(data)
-        if all(len(data_list) >= 7 for data_list in result):
+        if all(len(data_list) >= 11 for data_list in result):
             break
         sleep(.1)
     assert min(len(data_list) for data_list in result) > 2

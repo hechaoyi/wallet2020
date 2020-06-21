@@ -7,6 +7,7 @@ from pytz import timezone
 from wallet.core import db
 from wallet.util.m1 import get_accounts
 from wallet.util.plivo import error_notifier
+from wallet.util.robinhood import get_portfolio
 
 tz = timezone('US/Pacific')
 
@@ -80,17 +81,14 @@ class M1Portfolio(db.Model):
         today = tz.fromutc(datetime.utcnow()).date()
 
         result = []
+
+        # M1
         for name, performance in m1.items():
             if not performance or (performance['startValue']['value'] == 0 and performance['endValue']['value'] == 0):
                 continue
             start_date = tz.fromutc(datetime.fromisoformat(performance['startValue']['date'][:-1])).date()
             assert start_date == today, f'start date not matched {start_date}, expected {today}'
-            inst = cls.query.filter_by(name=name).order_by(cls.date.desc()).first()
-            if inst and inst.date == today:
-                last = cls.query.filter_by(name=name).order_by(cls.date.desc()).offset(1).first()
-            else:
-                last, inst = inst, cls(name=name, date=today)
-                db.session.add(inst)
+            inst, last = cls._load(name, today)
 
             inst.value = performance['endValue']['value']
             inst.gain = performance['totalGain']
@@ -103,8 +101,31 @@ class M1Portfolio(db.Model):
             current_app.logger.info(f'{name}: {inst}')
             result.append((inst, last))
 
+        # Robinhood
+        name, rh = 'Robinhood', get_portfolio()
+        inst, last = cls._load(name, today)
+        inst.value = round(rh.value, 2)
+        inst.start_value = round(rh.start_value, 2)
+        inst.gain = round(rh.value - rh.start_value, 2)
+        inst.rate = round(inst.gain / inst.start_value * 100, 2)
+        inst.capital_gain = inst.gain
+        inst.net_cash_flow = inst.dividend_gain = 0
+        inst.cost_basis = last.cost_basis if last else 0
+        current_app.logger.info(f'{name}: {inst}')
+        result.append((inst, last))
+
         for inst, last in result:
             inst.inspect(last, fix_start_value=True)
+
+    @classmethod
+    def _load(cls, name, today):
+        inst = cls.query.filter_by(name=name).order_by(cls.date.desc()).first()
+        if inst and inst.date == today:
+            last = cls.query.filter_by(name=name).order_by(cls.date.desc()).offset(1).first()
+        else:
+            last, inst = inst, cls(name=name, date=today)
+            db.session.add(inst)
+        return inst, last
 
     @classmethod
     def net_value_series(cls, name, limit):

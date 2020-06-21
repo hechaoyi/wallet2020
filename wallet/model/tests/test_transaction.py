@@ -25,7 +25,7 @@ def test_create_transaction(user):
     assert txn.amount == 13.65
     assert len(txn.entries) == 3
     assert not prev_entry.active
-    assert prev_entry.amount + 13.65 == prev_entry.successor.amount
+    assert round(prev_entry.amount + 13.65, 2) == prev_entry.successor.amount
 
 
 def test_create_transaction_with_currency_exchange(user):
