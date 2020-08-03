@@ -19,13 +19,14 @@ def init_app(app):
 def get_summary(output=print, verbose=True):
     req = _init_request_session()
 
-    positions = get_option_positions(req, ['AAPL', 'MSFT', 'FB', 'AMZN'])
+    positions = get_option_positions(req, [])
     for item in positions.values():
         shares = sum(pos.shares for pos in item.positions)
         output(f'{item.symbol} '
                f'[Gain {sum(pos.gain for pos in item.positions)}, Theta {sum(pos.theta for pos in item.positions):.2f},'
                f' Shares {shares:.1f}, Gamma {sum(pos.gamma for pos in item.positions):.2f},'
-               f' Price {item.price}, Value {shares * item.price:.0f}]:')
+               f' Price {item.price}, Value {shares * item.price:.0f},'
+               f' Collateral {sum(pos.maximum for pos in item.positions)}]:')
         if verbose:
             for pos in item.positions:
                 output(f' - {pos.name} '
@@ -34,59 +35,69 @@ def get_summary(output=print, verbose=True):
                        f' Health {pos.health}%]')
 
     output()
-    dd = defaultdict(lambda: [0, 0, 0])
+    dd = defaultdict(lambda: [0, 0, 0, 0])
     for item in positions.values():
         for pos in item.positions:
             dd[pos.expiry][0] += pos.gain
             dd[pos.expiry][1] += pos.theta
             dd[pos.expiry][2] += abs(pos.shares) * item.price
+            dd[pos.expiry][3] += pos.maximum
     for expiry in sorted(dd):
-        output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f}, Value: {dd[expiry][2]:.0f}')
-
-    target = -0.7
-    aapl = sum(pos.shares for pos in positions['AAPL'].positions) * positions['AAPL'].price
-    msft = sum(pos.shares for pos in positions['MSFT'].positions) * positions['MSFT'].price
-    fb = sum(pos.shares for pos in positions['FB'].positions) * positions['FB'].price
-    amzn = sum(pos.shares for pos in positions['AMZN'].positions) * positions['AMZN'].price
-    qqq = sum(pos.shares for pos in positions['QQQ'].positions) * positions['QQQ'].price
-    mafa = aapl + msft + fb + amzn + qqq
-    spy = sum(pos.shares for pos in positions['SPY'].positions) * positions['SPY'].price
-    output(f'AAPL:MSFT:FB:AMZN:QQQ:SPY    {aapl / mafa * 100:.0f}:{msft / mafa * 100:.0f}'
-           f':{fb / mafa * 100:.0f}:{amzn / mafa * 100:.0f}'
-           f':{qqq / mafa * 100:.0f}:{spy / mafa * 100:.0f}')
-    if spy / mafa > target + .05:  # too much MAFA
-        output(f'Short SPY {(mafa * target - spy) / positions["SPY"].price:.1f} shares')
-    elif spy / mafa < target - .05:  # too much SPY
-        if spy / target * .25 > aapl:
-            output(f'Long AAPL {(spy / target * .25 - aapl) / positions["AAPL"].price:.1f} shares')
-        if spy / target * .25 > msft:
-            output(f'Long MSFT {(spy / target * .25 - msft) / positions["MSFT"].price:.1f} shares')
-        if spy / target * .25 > fb:
-            output(f'Long FB {(spy / target * .25 - fb) / positions["FB"].price:.1f} shares')
-        if spy / target * .25 > amzn:
-            output(f'Long AMZN {(spy / target * .25 - amzn) / positions["AMZN"].price:.1f} shares')
+        output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f},'
+               f' Value: {dd[expiry][2]:.0f}, Collateral: {dd[expiry][3]}')
 
     today = datetime.today()
-    expiry_date = (today + timedelta(days=28 + (4 - today.weekday()) % 7)).strftime('%Y-%m-%d')
+    days = {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
+    expiry_date = (today + timedelta(days=days)).strftime('%m/%d')
+    expiry_date = {
+        '07/03': '07/02',
+    }.get(expiry_date, expiry_date)
+    aapl = sum(pos.shares for pos in positions['AAPL'].positions
+               if pos.expiry > expiry_date) * positions['AAPL'].price
+    msft = sum(pos.shares for pos in positions['MSFT'].positions
+               if pos.expiry > expiry_date) * positions['MSFT'].price
+    qqq = sum(pos.shares for pos in positions['QQQ'].positions
+              if pos.expiry > expiry_date) * positions['QQQ'].price
+    amq = aapl + msft + qqq
+    spy = sum(-pos.shares for pos in positions['SPY'].positions
+              if pos.expiry > expiry_date) * positions['SPY'].price
+    output(f'AAPL:MSFT:QQQ:SPY    {aapl / amq * 100:.0f}:{msft / amq * 100:.0f}'
+           f':{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
+
+    aapl = sum(pos.maximum for pos in positions['AAPL'].positions
+               if pos.expiry > expiry_date)
+    msft = sum(pos.maximum for pos in positions['MSFT'].positions
+               if pos.expiry > expiry_date)
+    qqq = sum(pos.maximum for pos in positions['QQQ'].positions
+              if pos.expiry > expiry_date)
+    amq = aapl + msft + qqq
+    spy = sum(pos.maximum for pos in positions['SPY'].positions
+              if pos.expiry > expiry_date)
+    output(f'AAPL:MSFT:QQQ:SPY    {aapl / amq * 100:.0f}:{msft / amq * 100:.0f}'
+           f':{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
+
+    days = 21 + {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
+    expiry_date = (today + timedelta(days=days)).strftime('%Y-%m-%d')
     expiry_date = {
         '2020-07-03': '2020-07-02',
     }.get(expiry_date, expiry_date)
 
-    def list_spreads(symbol, strategy, price, chain, ratio1, ratio2):
+    def list_spreads(symbol, strategy, price, chain, ratio1, intervals, expiry_date):
         output(f'{symbol} candidates: [stock price: {price}, expiry date: {expiry_date}]')
-        spreads = find_option_spreads(req, strategy, chain, expiry_date, price, ratio1, ratio2)
-        if not verbose:
-            spreads = spreads[:2]
+        spreads = find_option_spreads(req, strategy, chain, expiry_date, price, ratio1, intervals)
         for spread in spreads:
             output(f' - {spread.name} [Shares {spread.shares}, Price {spread.price}'
                    f', Maximum {spread.maximum}, Health {spread.health}%')
 
     output()
-    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, .72)
-    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, .72)
-    list_spreads('FB',   'short_put', positions['FB'].price,   positions['FB'].chain,   .56, .72)
-    list_spreads('AMZN', 'short_put', positions['AMZN'].price, positions['AMZN'].chain, .56, .60)
-    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, .64)
+    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, [5.0], expiry_date)
+    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, [5.0], expiry_date)
+    list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .56, [3.0], expiry_date)
+    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, [3.0], expiry_date)
+    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, [5.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
+    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, [5.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
+    list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .56, [3.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
+    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, [3.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
 
 
 def get_summary_with_notif():
@@ -100,7 +111,7 @@ def get_summary_with_notif():
 
 
 def get_option_positions(req, additions):
-    Position = namedtuple('Position', 'name gain shares health gamma theta expiry')
+    Position = namedtuple('Position', 'name gain shares health gamma theta expiry maximum')
     SymbolPositions = namedtuple('SymbolPositions', 'symbol positions price chain')
     positions = {}  # symbol:SymbolPositions
 
@@ -115,10 +126,11 @@ def get_option_positions(req, additions):
         else:
             price = positions[symbol].price
 
-        market_data = _get_options_market_data(req, [leg['option'] for leg in legs])
+        expiry = datetime.fromisoformat(legs[0]['expiration_date']).strftime('%m/%d')
+        expiring_today = expiry == datetime.today().strftime('%m/%d')
+        market_data = _get_options_market_data(req, [leg['option'] for leg in legs], allow_none=expiring_today)
         maximum = round(abs(float(legs[0]['strike_price']) - float(legs[1]['strike_price'])) * 100 * quantity)
         strike_prices = '/'.join(str(float(leg['strike_price'])) for leg in legs)
-        expiry = datetime.fromisoformat(legs[0]['expiration_date']).strftime('%m/%d')
         name = {
             'long_call_spread': lambda: f'{symbol} {expiry} Exp • {strike_prices} Calls • {quantity} Debit Spreads',
             'long_put_spread': lambda: f'{symbol} {expiry} Exp • {strike_prices} Puts • {quantity} Debit Spreads',
@@ -130,14 +142,16 @@ def get_option_positions(req, additions):
             data = market_data[i]
             if leg['position_type'] == 'long':
                 equity += round(float(data['mark_price']) * 100 * quantity)
-                shares += float(data['delta']) * 100 * quantity
-                gamma += float(data['gamma']) * quantity * price  # the change of shares per 1%
-                theta += float(data['theta']) * 100 * quantity  # the change of equity per day
+                if not expiring_today:
+                    shares += float(data['delta']) * 100 * quantity
+                    gamma += float(data['gamma']) * quantity * price  # the change of shares per 1%
+                    theta += float(data['theta']) * 100 * quantity  # the change of equity per day
             else:
                 equity -= round(float(data['mark_price']) * 100 * quantity)
-                shares -= float(data['delta']) * 100 * quantity
-                gamma -= float(data['gamma']) * quantity * price  # the change of shares per 1%
-                theta -= float(data['theta']) * 100 * quantity  # the change of equity per day
+                if not expiring_today:
+                    shares -= float(data['delta']) * 100 * quantity
+                    gamma -= float(data['gamma']) * quantity * price  # the change of shares per 1%
+                    theta -= float(data['theta']) * 100 * quantity  # the change of equity per day
         cost = round(float(position['average_open_price']) * quantity)  # always positive
         gain = equity - cost
         health = equity / maximum
@@ -145,7 +159,8 @@ def get_option_positions(req, additions):
             gain = equity + cost
             health = 1 + equity / maximum
         positions[symbol].positions.append(Position(name, gain, round(shares, 1),
-                                                    round(health * 100), round(gamma, 2), round(theta, 2), expiry))
+                                                    round(health * 100), round(gamma, 2), round(theta, 2),
+                                                    expiry, maximum))
 
     for symbol in additions:
         if symbol not in positions:
@@ -156,7 +171,7 @@ def get_option_positions(req, additions):
     return positions
 
 
-def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio1, ratio2):
+def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio1, intervals):
     option_type = 'call' if 'call' in strategy else 'put'
     params = {'state': 'active', 'type': option_type, 'chain_id': chain_id, 'expiration_dates': expiry_date}
     options = sorted((float(option['strike_price']), option['url'])
@@ -188,13 +203,13 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
             shares = (options[j].delta - options[i].delta) * 100
             price = round(options[j].mark_price - options[i].mark_price, 2)
             maximum = round(abs(options[j].strike_price - options[i].strike_price), 2)
+            if maximum not in intervals:
+                continue
             gamma = round((options[j].gamma - options[i].gamma) * stock_price, 2)
             theta = round((options[j].theta - options[i].theta) * 100, 2)
             health = price / maximum
             if 'short' in strategy:
                 health = 1 + price / maximum
-            if shares > 10 or shares < -10 or health > ratio2:
-                continue
             strike_prices = f'{options[j].strike_price}/{options[i].strike_price}'
             name = {
                 'long_call': lambda: f'{strike_prices} Calls Debit Spread',
@@ -203,17 +218,21 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
                 'short_put': lambda: f'{strike_prices} Puts Credit Spread',
             }[strategy]()
             spreads.append(Spread(name, round(shares, 1), price, maximum, round(health * 100), gamma, theta))
-    spreads.sort(key=lambda c: c.health)
+    spreads.sort(key=lambda c: (c.maximum, c.health))
+    interval_backlogs = 3  # if len(intervals) > 1 else 4
     result = []
     for spread in spreads:
-        if not result or abs(spread.shares) > abs(result[-1].shares):
+        if len(result) < interval_backlogs or result[-interval_backlogs].maximum != spread.maximum:
             result.append(spread)
     return result
 
 
 def get_portfolio():
     req = _init_request_session()
-    result = req.get(f'{HOST}/portfolios/').json()['results'][0]
+    json = req.get(f'{HOST}/portfolios/').json()
+    if 'results' not in json:
+        raise ValueError(json['detail'])
+    result = json['results'][0]
     Portfolio = namedtuple('Portfolio', 'value start_value')
     return Portfolio(float(result['equity']), float(result['equity_previous_close']))
 
@@ -229,19 +248,19 @@ def _init_request_session():
     return req
 
 
-def _get_options_market_data(req, option_list):
+def _get_options_market_data(req, option_list, allow_none=False):
     result = [[] for _ in range(len(option_list))]
     for _ in range(15):
         market_data = req.get(f'{HOST}/marketdata/options/',
                               params={'instruments': ','.join(option_list)}).json()['results']
         for i, data in enumerate(market_data):
-            if data['delta'] is not None:
+            if data['delta'] is not None or allow_none:
                 result[i].append(data)
         if all(len(data_list) >= 11 for data_list in result):
             break
         sleep(.1)
     assert min(len(data_list) for data_list in result) > 2
-    return [sorted(data_list, key=lambda d: float(d['delta']))[len(data_list) // 2] for data_list in result]
+    return [sorted(data_list, key=lambda d: float(d['delta']) if d['delta'] else 0)[len(data_list) // 2] for data_list in result]
 
 
 def _paginate(req, url, params=None):
