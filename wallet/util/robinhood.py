@@ -20,7 +20,7 @@ def get_summary(output=print, verbose=True):
     req = _init_request_session()
 
     positions = get_option_positions(req, [])
-    for item in positions.values():
+    for item in sorted(positions.values(), key=lambda e: e.symbol):
         shares = sum(pos.shares for pos in item.positions)
         output(f'{item.symbol} '
                f'[Gain {sum(pos.gain for pos in item.positions)}, Theta {sum(pos.theta for pos in item.positions):.2f},'
@@ -28,7 +28,7 @@ def get_summary(output=print, verbose=True):
                f' Price {item.price}, Value {shares * item.price:.0f},'
                f' Collateral {sum(pos.maximum for pos in item.positions)}]:')
         if verbose:
-            for pos in item.positions:
+            for pos in sorted(item.positions, key=lambda e: e.name):
                 output(f' - {pos.name} '
                        f'[Gain {pos.gain}, Theta {pos.theta},'
                        f' Shares {pos.shares}, Gamma {pos.gamma},'
@@ -64,25 +64,8 @@ def get_summary(output=print, verbose=True):
     output(f'AAPL:MSFT:QQQ:SPY    {aapl / amq * 100:.0f}:{msft / amq * 100:.0f}'
            f':{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
 
-    aapl = sum(pos.maximum for pos in positions['AAPL'].positions
-               if pos.expiry > expiry_date)
-    msft = sum(pos.maximum for pos in positions['MSFT'].positions
-               if pos.expiry > expiry_date)
-    qqq = sum(pos.maximum for pos in positions['QQQ'].positions
-              if pos.expiry > expiry_date)
-    amq = aapl + msft + qqq
-    spy = sum(pos.maximum for pos in positions['SPY'].positions
-              if pos.expiry > expiry_date)
-    output(f'AAPL:MSFT:QQQ:SPY    {aapl / amq * 100:.0f}:{msft / amq * 100:.0f}'
-           f':{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
-
-    days = 21 + {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
-    expiry_date = (today + timedelta(days=days)).strftime('%Y-%m-%d')
-    expiry_date = {
-        '2020-07-03': '2020-07-02',
-    }.get(expiry_date, expiry_date)
-
     def list_spreads(symbol, strategy, price, chain, ratio1, intervals, expiry_date):
+        expiry_date = expiry_date.strftime('%Y-%m-%d')
         output(f'{symbol} candidates: [stock price: {price}, expiry date: {expiry_date}]')
         spreads = find_option_spreads(req, strategy, chain, expiry_date, price, ratio1, intervals)
         for spread in spreads:
@@ -90,14 +73,17 @@ def get_summary(output=print, verbose=True):
                    f', Maximum {spread.maximum}, Health {spread.health}%')
 
     output()
-    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, [5.0], expiry_date)
-    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, [5.0], expiry_date)
-    list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .56, [3.0], expiry_date)
-    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, [3.0], expiry_date)
-    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .56, [5.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
-    list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .56, [5.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
-    list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .56, [3.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
-    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .64, [3.0], (today + timedelta(days=days + 7)).strftime('%Y-%m-%d'))
+    days = 28 + {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
+    buy_date = (today + timedelta(days=days))
+    buy_date_str = buy_date.strftime('%m/%d')
+    if not any(pos.expiry == buy_date_str for pos in positions['AAPL'].positions):
+        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [5.0], buy_date)
+    if not any(pos.expiry == buy_date_str for pos in positions['MSFT'].positions):
+        list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .55, [5.0], buy_date)
+    if not any(pos.expiry == buy_date_str for pos in positions['QQQ'].positions):
+        list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .60, [3.0], buy_date)
+    if not any(pos.expiry == buy_date_str for pos in positions['SPY'].positions):
+        list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .65, [2.0], buy_date)
 
 
 def get_summary_with_notif():
