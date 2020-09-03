@@ -42,16 +42,15 @@ def get_summary(output=print, verbose=True):
             dd[pos.expiry][1] += pos.theta
             dd[pos.expiry][2] += abs(pos.shares) * item.price
             dd[pos.expiry][3] += pos.maximum
-    for expiry in sorted(dd):
-        output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f},'
-               f' Value: {dd[expiry][2]:.0f}, Collateral: {dd[expiry][3]}')
-
     today = datetime.today()
     days = {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
+    selloff_date = (today + timedelta(days=days + 7)).strftime('%m/%d')
+    for expiry in sorted(dd):
+        output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f},'
+               f' Value: {dd[expiry][2]:.0f}, Collateral: {dd[expiry][3]}'
+               f'{"  <<<<" if expiry == selloff_date else ""}')
+
     expiry_date = (today + timedelta(days=days)).strftime('%m/%d')
-    expiry_date = {
-        '07/03': '07/02',
-    }.get(expiry_date, expiry_date)
     aapl = sum(pos.shares for pos in positions['AAPL'].positions
                if pos.expiry > expiry_date) * positions['AAPL'].price
     msft = sum(pos.shares for pos in positions['MSFT'].positions
@@ -77,7 +76,7 @@ def get_summary(output=print, verbose=True):
     buy_date = (today + timedelta(days=days))
     buy_date_str = buy_date.strftime('%m/%d')
     if not any(pos.expiry == buy_date_str for pos in positions['AAPL'].positions):
-        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [5.0], buy_date)
+        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [2.5], buy_date)
     if not any(pos.expiry == buy_date_str for pos in positions['MSFT'].positions):
         list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .55, [5.0], buy_date)
     if not any(pos.expiry == buy_date_str for pos in positions['QQQ'].positions):

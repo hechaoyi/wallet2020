@@ -61,7 +61,7 @@ def search(lo, hi):
     current_app.logger.info('Swapsy matches:\n%s', '\n'.join(str(t) for t in trades))
     return max(
         (trade for trade in trades
-         if lo <= trade.amount <= hi and trade.actual_rate >= trade.rate),
+         if lo <= trade.amount <= hi and trade.actual_rate >= trade.rate * .9999),
         key=lambda t: (t.actual_rate, t.amount),
         default=None
     )
