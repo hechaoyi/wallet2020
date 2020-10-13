@@ -53,15 +53,12 @@ def get_summary(output=print, verbose=True):
     expiry_date = (today + timedelta(days=days)).strftime('%m/%d')
     aapl = sum(pos.shares for pos in positions['AAPL'].positions
                if pos.expiry > expiry_date) * positions['AAPL'].price
-    msft = sum(pos.shares for pos in positions['MSFT'].positions
-               if pos.expiry > expiry_date) * positions['MSFT'].price
     qqq = sum(pos.shares for pos in positions['QQQ'].positions
               if pos.expiry > expiry_date) * positions['QQQ'].price
-    amq = aapl + msft + qqq
+    amq = aapl + qqq
     spy = sum(-pos.shares for pos in positions['SPY'].positions
               if pos.expiry > expiry_date) * positions['SPY'].price
-    output(f'AAPL:MSFT:QQQ:SPY    {aapl / amq * 100:.0f}:{msft / amq * 100:.0f}'
-           f':{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
+    output(f'AAPL:QQQ:SPY    {aapl / amq * 100:.0f}:{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
 
     def list_spreads(symbol, strategy, price, chain, ratio1, intervals, expiry_date):
         expiry_date = expiry_date.strftime('%Y-%m-%d')
@@ -76,11 +73,9 @@ def get_summary(output=print, verbose=True):
     buy_date = (today + timedelta(days=days))
     buy_date_str = buy_date.strftime('%m/%d')
     if not any(pos.expiry == buy_date_str for pos in positions['AAPL'].positions):
-        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [2.5], buy_date)
-    if not any(pos.expiry == buy_date_str for pos in positions['MSFT'].positions):
-        list_spreads('MSFT', 'short_put', positions['MSFT'].price, positions['MSFT'].chain, .55, [5.0], buy_date)
+        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [1.0], buy_date)
     if not any(pos.expiry == buy_date_str for pos in positions['QQQ'].positions):
-        list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .60, [3.0], buy_date)
+        list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .60, [2.0], buy_date)
     if not any(pos.expiry == buy_date_str for pos in positions['SPY'].positions):
         list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .65, [2.0], buy_date)
 

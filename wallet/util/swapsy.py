@@ -79,8 +79,8 @@ def create(trade):
     data = {'_frontendCSRF': swapsy_session.csrf, **_obj_to_form(swapsy_session.block, 'block', {})}
     assert swapsy_session.post(HOST + '/trade2/init', data=data).json()['extra']['status'] == 'success'
     _access_trade2_page()
-    # swapsy_session.block['receiveWallets'] = 'wxpay,alipay'
-    swapsy_session.block['receiveWallets'] = 'alipay'
+    swapsy_session.block['receiveWallets'] = 'wxpay,alipay'
+    # swapsy_session.block['receiveWallets'] = 'alipay'
     data = {'_frontendCSRF': swapsy_session.csrf, **_obj_to_form(swapsy_session.block, 'block', {})}
     assert swapsy_session.post(HOST + '/trade2/create', data=data).json()['extra']['status'] == 'success'
     current_app.logger.info(f'Swapsy created:  {trade}')
