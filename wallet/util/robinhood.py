@@ -44,21 +44,21 @@ def get_summary(output=print, verbose=True):
             dd[pos.expiry][3] += pos.maximum
     today = datetime.today()
     days = {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
-    selloff_date = (today + timedelta(days=days + 7)).strftime('%m/%d')
+    selloff_date = (today + timedelta(days=days + 14)).strftime('%m/%d')
     for expiry in sorted(dd):
         output(f'Week {expiry}\'s Gain: {dd[expiry][0]}, Theta: {dd[expiry][1]:.2f},'
                f' Value: {dd[expiry][2]:.0f}, Collateral: {dd[expiry][3]}'
                f'{"  <<<<" if expiry == selloff_date else ""}')
 
-    expiry_date = (today + timedelta(days=days)).strftime('%m/%d')
-    aapl = sum(pos.shares for pos in positions['AAPL'].positions
-               if pos.expiry > expiry_date) * positions['AAPL'].price
-    qqq = sum(pos.shares for pos in positions['QQQ'].positions
-              if pos.expiry > expiry_date) * positions['QQQ'].price
-    amq = aapl + qqq
-    spy = sum(-pos.shares for pos in positions['SPY'].positions
-              if pos.expiry > expiry_date) * positions['SPY'].price
-    output(f'AAPL:QQQ:SPY    {aapl / amq * 100:.0f}:{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
+    #expiry_date = (today + timedelta(days=days)).strftime('%m/%d')
+    #aapl = sum(pos.shares for pos in positions['AAPL'].positions
+    #           if pos.expiry > expiry_date) * positions['AAPL'].price
+    #qqq = sum(pos.shares for pos in positions['QQQ'].positions
+    #          if pos.expiry > expiry_date) * positions['QQQ'].price
+    #amq = aapl + qqq
+    #spy = sum(-pos.shares for pos in positions['SPY'].positions
+    #          if pos.expiry > expiry_date) * positions['SPY'].price
+    #output(f'AAPL:QQQ:SPY    {aapl / amq * 100:.0f}:{qqq / amq * 100:.0f}:{spy / amq * 100:.0f}')
 
     def list_spreads(symbol, strategy, price, chain, ratio1, intervals, expiry_date):
         expiry_date = expiry_date.strftime('%Y-%m-%d')
@@ -69,15 +69,26 @@ def get_summary(output=print, verbose=True):
                    f', Maximum {spread.maximum}, Health {spread.health}%')
 
     output()
-    days = 28 + {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
-    buy_date = (today + timedelta(days=days))
-    buy_date_str = buy_date.strftime('%m/%d')
-    if not any(pos.expiry == buy_date_str for pos in positions['AAPL'].positions):
-        list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [1.0], buy_date)
-    if not any(pos.expiry == buy_date_str for pos in positions['QQQ'].positions):
-        list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .60, [2.0], buy_date)
-    if not any(pos.expiry == buy_date_str for pos in positions['SPY'].positions):
-        list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .65, [2.0], buy_date)
+    buy_date = datetime(2021, 6, 18)
+    list_spreads('ARKK', 'short_put', positions['ARKK'].price, positions['ARKK'].chain, .4, [15], buy_date)
+    #days = 35 + {0: 4, 1: 3, 2: 2, 3: 1, 4: 7, 5: 6, 6: 5}[today.weekday()]
+    #buy_date = (today + timedelta(days=days))
+    #buy_date_str = buy_date.strftime('%m/%d')
+    #if (
+    #    not any(pos.expiry == buy_date_str for pos in positions['AAPL'].positions)
+    #    or any(pos.health < 40 for pos in positions['AAPL'].positions)
+    #):
+    #    list_spreads('AAPL', 'short_put', positions['AAPL'].price, positions['AAPL'].chain, .55, [2.5], buy_date)
+    #if (
+    #    not any(pos.expiry == buy_date_str for pos in positions['QQQ'].positions)
+    #    or any(pos.health < 40 for pos in positions['QQQ'].positions)
+    #):
+    #    list_spreads('QQQ',  'short_put', positions['QQQ'].price,  positions['QQQ'].chain,  .60, [2.0], buy_date)
+    #if (
+    #    not any(pos.expiry == buy_date_str for pos in positions['SPY'].positions)
+    #    or any(pos.health < 40 for pos in positions['SPY'].positions)
+    #):
+    #    list_spreads('SPY', 'short_call', positions['SPY'].price,  positions['SPY'].chain,  .65, [2.0], buy_date)
 
 
 def get_summary_with_notif():
@@ -158,10 +169,10 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
                      for option in _paginate(req, f'{HOST}/options/instruments/', params))
     i = bisect_left(options, (stock_price, ''))
     options = {
-        'long_call': lambda: options[max(0, i - 16):i][::-1],
-        'long_put': lambda: options[i:min(len(options), i + 16)],
-        'short_call': lambda: options[i:min(len(options), i + 16)],
-        'short_put': lambda: options[max(0, i - 16):i][::-1],
+        'long_call': lambda: options[max(0, i - 16):i + 16][::-1],
+        'long_put': lambda: options[max(0, i - 16):i + 16],
+        'short_call': lambda: options[max(0, i - 16):i + 16],
+        'short_put': lambda: options[max(0, i - 16):i + 16][::-1],
     }[strategy]()
     market_data = _get_options_market_data(req, [option[1] for option in options])
     Option = namedtuple('Option', 'strike_price mark_price delta gamma theta')
@@ -178,6 +189,8 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
             'short_call': lambda: options[i].delta > 1 - ratio1,
             'short_put': lambda: -options[i].delta > 1 - ratio1,
         }[strategy]():
+            continue
+        if options[i].strike_price % 5 != 0:
             continue
         for j in range(i + 1, len(options)):
             shares = (options[j].delta - options[i].delta) * 100
@@ -199,7 +212,7 @@ def find_option_spreads(req, strategy, chain_id, expiry_date, stock_price, ratio
             }[strategy]()
             spreads.append(Spread(name, round(shares, 1), price, maximum, round(health * 100), gamma, theta))
     spreads.sort(key=lambda c: (c.maximum, c.health))
-    interval_backlogs = 3  # if len(intervals) > 1 else 4
+    interval_backlogs = 5
     result = []
     for spread in spreads:
         if len(result) < interval_backlogs or result[-interval_backlogs].maximum != spread.maximum:
