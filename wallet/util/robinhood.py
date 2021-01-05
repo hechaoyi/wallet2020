@@ -226,8 +226,14 @@ def get_portfolio():
     if 'results' not in json:
         raise ValueError(json['detail'])
     result = json['results'][0]
+    json = req.get(f'https://nummus.robinhood.com/portfolios/').json()
+    if 'results' not in json:
+        raise ValueError(json['detail'])
+    nummus = json['results'][0]
     Portfolio = namedtuple('Portfolio', 'value start_value')
-    return Portfolio(float(result['equity']), float(result['equity_previous_close']))
+    value = round(float(result['equity']) + float(nummus['equity']), 2)
+    start_value = round(float(result['equity_previous_close']) + float(nummus['previous_close']), 2)
+    return Portfolio(value, start_value)
 
 
 def _init_request_session():
