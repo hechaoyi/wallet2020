@@ -133,7 +133,7 @@ class M1Portfolio(db.Model):
         items = cls.query.filter_by(name=name).order_by(cls.date.desc())[:limit]
         series = [R(None, None, None, None, items[0].value)]
         for e in items:
-            gain = round(series[-1].start / (1 + 100 / e.rate), 2)
+            gain = round(series[-1].start / (1 + 100 / e.rate), 2) if e.rate != 0 else 0.0
             start = round(series[-1].start / (1 + e.rate / 100), 2)
             series.append(R(e.date, series[-1].start, gain, e.rate, start))
         return series[:0:-1]
