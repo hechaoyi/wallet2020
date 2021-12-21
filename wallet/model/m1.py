@@ -102,17 +102,17 @@ class M1Portfolio(db.Model):
             result.append((inst, last))
 
         # Robinhood
-        name, rh = 'Robinhood', get_portfolio()
-        inst, last = cls._load(name, today)
-        inst.value = round(rh.value, 2)
-        inst.start_value = round(rh.start_value, 2)
-        inst.gain = round(rh.value - rh.start_value, 2)
-        inst.rate = round(inst.gain / inst.start_value * 100, 2)
-        inst.capital_gain = inst.gain
-        inst.net_cash_flow = inst.dividend_gain = 0
-        inst.cost_basis = last.cost_basis if last else 0
-        current_app.logger.info(f'{name}: {inst}')
-        result.append((inst, last))
+        # name, rh = 'Robinhood', get_portfolio()
+        # inst, last = cls._load(name, today)
+        # inst.value = round(rh.value, 2)
+        # inst.start_value = round(rh.start_value, 2)
+        # inst.gain = round(rh.value - rh.start_value, 2)
+        # inst.rate = round(inst.gain / inst.start_value * 100, 2)
+        # inst.capital_gain = inst.gain
+        # inst.net_cash_flow = inst.dividend_gain = 0
+        # inst.cost_basis = last.cost_basis if last else 0
+        # current_app.logger.info(f'{name}: {inst}')
+        # result.append((inst, last))
 
         for inst, last in result:
             inst.inspect(last, fix_start_value=True)
