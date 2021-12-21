@@ -112,7 +112,7 @@ class M1Portfolio(db.Model):
         inst.net_cash_flow = inst.dividend_gain = 0
         inst.cost_basis = last.cost_basis if last else 0
         current_app.logger.info(f'{name}: {inst}')
-        result.append((inst, last))
+        # result.append((inst, last))
 
         for inst, last in result:
             inst.inspect(last, fix_start_value=True)
